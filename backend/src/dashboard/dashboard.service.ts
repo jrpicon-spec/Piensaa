@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AuthenticatedUser } from '../common/types/user.types';
 import { UserRole } from '../common/enums/user-role.enum';
@@ -24,10 +24,13 @@ export interface DashboardStats {
 
 @Injectable()
 export class DashboardService {
+  private readonly logger = new Logger(DashboardService.name);
+
   constructor(private readonly supabaseService: SupabaseService) {}
 
   async getStats(currentUser: AuthenticatedUser): Promise<DashboardStats> {
     const admin = this.supabaseService.getAdminClient();
+    const isDev = process.env.NODE_ENV !== 'production';
 
     // Pacientes
     let pacientesQuery = admin
@@ -38,10 +41,26 @@ export class DashboardService {
       pacientesQuery = pacientesQuery.eq('cuidador_id', currentUser.id);
     }
 
-    const { data: pacientes, error: pacientesError, count: pacientesTotal } =
-      await pacientesQuery;
+    if (isDev) {
+      this.logger.debug(
+        `GET dashboard/stats -> pacientes query=from("pacientes").select("id, estado, nombre, apellido, cuidador_id", { count: "exact" })${currentUser.rol === UserRole.CUIDADOR ? ` + eq(cuidador_id, ${currentUser.id})` : ''}`,
+      );
+    }
+
+    const { data: pacientes, error: pacientesError, count: pacientesTotal } = await pacientesQuery;
+
+    if (isDev) {
+      this.logger.debug(`GET dashboard/stats -> pacientes data=${JSON.stringify(pacientes)}`);
+      this.logger.debug(
+        `GET dashboard/stats -> pacientes error=${pacientesError ? JSON.stringify(pacientesError) : 'null'} count=${pacientesTotal ?? 'null'}`,
+      );
+    }
 
     if (pacientesError) {
+      this.logger.error(
+        `GET dashboard/stats -> pacientes failed: ${pacientesError.message}`,
+        pacientesError instanceof Error ? pacientesError.stack : undefined,
+      );
       throw new BadRequestException(
         `No se pudieron obtener los pacientes: ${pacientesError.message}`,
       );
@@ -84,6 +103,9 @@ export class DashboardService {
       .limit(200);
 
     if (pacientesIds.length === 0) {
+      if (isDev) {
+        this.logger.debug('GET dashboard/stats -> no patients, returning zeroed stats');
+      }
       return {
         total_pacientes: pacientesTotal ?? 0,
         total_cuidadores,
@@ -96,10 +118,26 @@ export class DashboardService {
 
     medicionesQuery = medicionesQuery.in('paciente_id', pacientesIds);
 
-    const { data: mediciones, error: medicionesError } =
-      await medicionesQuery;
+    if (isDev) {
+      this.logger.debug(
+        `GET dashboard/stats -> mediciones query=from("mediciones").select("id, paciente_id, tiempo_reaccion, fecha").order("fecha", { ascending: false }).limit(200).in("paciente_id", [${pacientesIds.join(', ')}])`,
+      );
+    }
+
+    const { data: mediciones, error: medicionesError } = await medicionesQuery;
+
+    if (isDev) {
+      this.logger.debug(`GET dashboard/stats -> mediciones data=${JSON.stringify(mediciones)}`);
+      this.logger.debug(
+        `GET dashboard/stats -> mediciones error=${medicionesError ? JSON.stringify(medicionesError) : 'null'}`,
+      );
+    }
 
     if (medicionesError) {
+      this.logger.error(
+        `GET dashboard/stats -> mediciones failed: ${medicionesError.message}`,
+        medicionesError instanceof Error ? medicionesError.stack : undefined,
+      );
       throw new BadRequestException(
         `No se pudieron obtener las mediciones: ${medicionesError.message}`,
       );
@@ -132,7 +170,7 @@ export class DashboardService {
           })()
         : ultima;
 
-    return {
+    const response = {
       total_pacientes: pacientesTotal ?? pacientesList.length,
       total_cuidadores,
       promedio_general: promedio,
@@ -140,5 +178,11 @@ export class DashboardService {
       pacientes_en_riesgo: pacientes_por_estado.riesgo,
       pacientes_por_estado,
     };
+
+    if (isDev) {
+      this.logger.debug(`GET dashboard/stats -> response=${JSON.stringify(response)}`);
+    }
+
+    return response;
   }
 }

@@ -17,6 +17,10 @@ const DEFAULT_EXPIRES_IN: StringValue = '7d' as StringValue;
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
+        const secret = config.get<string>('JWT_SECRET');
+        if (!secret) {
+          throw new Error('JWT_SECRET environment variable is not defined');
+        }
         const raw = config.get<string>('JWT_EXPIRES_IN');
         const expiresIn: number | StringValue =
           typeof raw === 'string' && /^\d+$/.test(raw)
@@ -24,7 +28,7 @@ const DEFAULT_EXPIRES_IN: StringValue = '7d' as StringValue;
             : (raw as StringValue) ?? DEFAULT_EXPIRES_IN;
 
         return {
-          secret: config.get<string>('JWT_SECRET') ?? 'reaccionvital-dev-secret',
+          secret,
           signOptions: { expiresIn },
         };
       },

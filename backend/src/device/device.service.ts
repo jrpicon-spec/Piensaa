@@ -129,8 +129,8 @@ export class DeviceService {
     const admin = this.supabaseService.getAdminClient();
     const record = {
       id: DEVICE_ID,
-      nombre: 'ESP32-Principal',
-      ip: '192.168.1.100',
+      nombre: 'ESP32-Default',
+      ip: '0.0.0.0',
       estado: DeviceStatus.DESCONECTADO,
       ultima_conexion: new Date().toISOString(),
     };

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -15,6 +16,8 @@ import { UserRole } from '../common/enums/user-role.enum';
 
 @Injectable()
 export class PatientsService {
+  private readonly logger = new Logger(PatientsService.name);
+
   constructor(private readonly supabaseService: SupabaseService) {}
 
   async findAll(
@@ -95,6 +98,7 @@ export class PatientsService {
 
   async create(dto: CreatePatientDto, currentUser: AuthenticatedUser): Promise<PatientResponse> {
     const admin = this.supabaseService.getAdminClient();
+    const isDev = process.env.NODE_ENV !== 'production';
 
     let cuidadorId = dto.cuidador_id;
     if (currentUser.rol === UserRole.CUIDADOR) {
@@ -115,19 +119,44 @@ export class PatientsService {
       estado: 'normal',
     };
 
-    const { data, error } = await admin
+    if (isDev) {
+      this.logger.debug(`CREATE pacientes -> insert payload=${JSON.stringify(record)}`);
+    }
+
+    const query = admin
       .from('pacientes')
       .insert(record)
       .select('*')
       .single();
 
+    if (isDev) {
+      this.logger.debug('CREATE pacientes -> query=from("pacientes").insert(record).select("*").single()');
+    }
+
+    const { data, error } = await query;
+
+    if (isDev) {
+      this.logger.debug(`CREATE pacientes -> data=${JSON.stringify(data)}`);
+      this.logger.debug(`CREATE pacientes -> error=${error ? JSON.stringify(error) : 'null'}`);
+    }
+
     if (error || !data) {
+      this.logger.error(
+        `CREATE pacientes -> failed: ${error?.message ?? 'sin datos devueltos'}`,
+        error instanceof Error ? error.stack : undefined,
+      );
       throw new BadRequestException(
         `No se pudo crear el paciente: ${error?.message ?? 'sin datos devueltos'}`,
       );
     }
 
-    return this.mapPatient(data as unknown as Record<string, unknown>);
+    const patient = this.mapPatient(data as unknown as Record<string, unknown>);
+
+    if (isDev) {
+      this.logger.debug(`CREATE pacientes -> response=${JSON.stringify(patient)}`);
+    }
+
+    return patient;
   }
 
   async update(

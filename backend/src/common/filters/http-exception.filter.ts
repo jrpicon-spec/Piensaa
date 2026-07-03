@@ -38,6 +38,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
         `[${request.method} ${request.url}] ${payload.message}`,
         exception instanceof Error ? exception.stack : undefined,
       );
+    } else {
+      this.logger.warn(
+        `[${request.method} ${request.url}] status=${status} payload=${JSON.stringify(payload)}`,
+      );
     }
 
     response.status(status).json(payload);
