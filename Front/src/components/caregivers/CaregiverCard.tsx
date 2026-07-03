@@ -37,7 +37,7 @@ export function CaregiverCard({ caregiver, index = 0, onEdit, onDelete }: Caregi
           </Avatar>
           <div>
             <h3 className="text-base font-semibold text-foreground">{caregiver.name}</h3>
-            <p className="text-xs text-muted-foreground">Desde {relativeTime(caregiver.createdAt)}</p>
+            <p className="text-xs text-muted-foreground">Desde {relativeTime(caregiver.createdAt ?? new Date().toISOString())}</p>
           </div>
         </div>
 

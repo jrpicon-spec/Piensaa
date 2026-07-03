@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Download, FileText, Filter, Printer, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -15,7 +15,8 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { LineChartCard } from '@/components/charts/LineChartCard';
 import { BarChartCard } from '@/components/charts/BarChartCard';
-import { mockCaregivers, mockPatients, mockReactionRecords } from '@/data/mock';
+import { measurementsService, type Measurement } from '@/services/measurements.service';
+import { patientsService, type Patient } from '@/services/patients.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { avg, cn, formatDate, getStatusColor } from '@/utils';
@@ -27,17 +28,36 @@ export function ReportsPage() {
   const [search, setSearch] = useState('');
   const [patientId, setPatientId] = useState<string>('all');
   const [status, setStatus] = useState<'all' | PatientStatus>('all');
-  const [fromDate, setFromDate] = useState('2026-05-01');
-  const [toDate, setToDate] = useState('2026-06-24');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [records, setRecords] = useState<Measurement[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(true);
+  const patientOptions =
+    user?.role === 'caregiver' ? patients.filter((p) => p.caregiverId === user.id) : patients;
 
-  if (!user) return null;
-
-  const patientOptions = user.role === 'caregiver'
-    ? mockPatients.filter((p) => p.caregiverId === 'c-001' || p.caregiverId === 'c-002')
-    : mockPatients;
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const [measurementsData, patientsData] = await Promise.all([
+          measurementsService.findAll({ limit: 500 }),
+          patientsService.findAll(),
+        ]);
+        setRecords(measurementsData.items);
+        setPatients(patientsData);
+      } catch {
+        setRecords([]);
+        setPatients([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
 
   const filtered = useMemo(() => {
-    return mockReactionRecords.filter((r) => {
+    return records.filter((r) => {
       const matchesSearch = search === '' || r.patientId.toLowerCase().includes(search.toLowerCase());
       const matchesPatient = patientId === 'all' || r.patientId === patientId;
       const matchesStatus = status === 'all' || r.status === status;
@@ -45,7 +65,7 @@ export function ReportsPage() {
       const matchesTo = !toDate || r.date <= toDate;
       return matchesSearch && matchesPatient && matchesStatus && matchesFrom && matchesTo;
     });
-  }, [search, patientId, status, fromDate, toDate]);
+  }, [records, search, patientId, status, fromDate, toDate]);
 
   const stats = useMemo(() => {
     const times = filtered.map((r) => r.reactionMs);
@@ -82,6 +102,11 @@ export function ReportsPage() {
       { label: 'Riesgo', value: riesgo, variant: 'riesgo' as const },
     ];
   }, [filtered]);
+
+  if (!user) return null;
+  if (loading) return <div className="p-6">Cargando...</div>;
+
+  const patientsMap = new Map(patients.map((p) => [p.id, p]));
 
   return (
     <div className="space-y-6">
@@ -219,8 +244,7 @@ export function ReportsPage() {
                 </tr>
               ) : (
                 filtered.slice(0, 60).map((r, idx) => {
-                  const p = mockPatients.find((pp) => pp.id === r.patientId);
-                  const cg = p?.caregiverId ? mockCaregivers.find((c) => c.id === p.caregiverId) : undefined;
+                  const p = patientsMap.get(r.patientId);
                   const colors = getStatusColor(r.status);
                   return (
                     <motion.tr
@@ -233,7 +257,7 @@ export function ReportsPage() {
                       <td className="px-6 py-3 text-foreground">{formatDate(r.date)}</td>
                       <td className="px-6 py-3 text-muted-foreground font-mono">{r.time}</td>
                       <td className="px-6 py-3 text-foreground">{p?.fullName ?? '—'}</td>
-                      <td className="px-6 py-3 text-muted-foreground">{cg?.name ?? '—'}</td>
+                      <td className="px-6 py-3 text-muted-foreground">—</td>
                       <td className="px-6 py-3 font-semibold tabular-nums text-foreground">{r.reactionMs} ms</td>
                       <td className="px-6 py-3">
                         <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold', colors.bg, colors.text)}>

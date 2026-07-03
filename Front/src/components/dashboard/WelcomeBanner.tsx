@@ -1,29 +1,61 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, ChevronRight, Clock, Gauge, TrendingDown, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
-import { mockReactionRecords, mockPatients } from '@/data/mock';
+import { dashboardService } from '@/services/dashboard.service';
+import { measurementsService } from '@/services/measurements.service';
+import { patientsService } from '@/services/patients.service';
 import { avg, relativeTime } from '@/utils';
 
 export function WelcomeBanner() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  if (!user) return null;
+  const [last24Count, setLast24Count] = useState(0);
+  const [last24Avg, setLast24Avg] = useState(0);
+  const [riskCount, setRiskCount] = useState(0);
+  const [recentMeasurements, setRecentMeasurements] = useState<{ id: string; reactionMs: number; date: string; time: string; patientName?: string }[]>([]);
 
-  const recent = mockReactionRecords.slice(0, 5);
-  const last24 = mockReactionRecords.filter(
-    (r) => Date.now() - new Date(r.date + 'T' + r.time).getTime() < 24 * 60 * 60 * 1000,
-  );
-  const last24Avg = last24.length > 0 ? avg(last24.map((r) => r.reactionMs)) : 0;
-  const yesterdayRecords = mockReactionRecords.filter((r) => {
-    const t = new Date(r.date + 'T' + r.time).getTime();
-    const now = Date.now();
-    return now - t >= 24 * 60 * 60 * 1000 && now - t < 48 * 60 * 60 * 1000;
-  });
-  const yesterdayAvg = yesterdayRecords.length > 0 ? avg(yesterdayRecords.map((r) => r.reactionMs)) : 0;
-  const isImproving = last24Avg > 0 && (yesterdayAvg === 0 || last24Avg <= yesterdayAvg);
-  const diff = yesterdayAvg > 0 ? Math.abs(Math.round(((last24Avg - yesterdayAvg) / yesterdayAvg) * 100)) : 0;
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [stats, measurementsResult, patients] = await Promise.all([
+          dashboardService.getStats().catch(() => null),
+          measurementsService.findAll({ limit: 20 }).catch(() => ({ items: [], total: 0 })),
+          patientsService.findAll().catch(() => []),
+        ]);
+
+        if (stats) {
+          setRiskCount(stats.pacientes_en_riesgo);
+        }
+
+        const now = Date.now();
+        const oneDay = 24 * 60 * 60 * 1000;
+        const last24 = measurementsResult.items.filter((m) => {
+          const t = new Date(m.date + 'T' + m.time).getTime();
+          return now - t < oneDay;
+        });
+        setLast24Count(last24.length);
+        setLast24Avg(last24.length > 0 ? avg(last24.map((r) => r.reactionMs)) : 0);
+
+        const patientsMap = new Map(patients.map((p) => [p.id, p.fullName]));
+        const recent = measurementsResult.items.slice(0, 5).map((m) => ({
+          id: m.id,
+          reactionMs: m.reactionMs,
+          date: m.date,
+          time: m.time,
+          patientName: patientsMap.get(m.patientId),
+        }));
+        setRecentMeasurements(recent);
+      } catch {
+        // Silently fail - banner will show empty state
+      }
+    }
+    fetchData();
+  }, []);
+
+  if (!user) return null;
 
   return (
     <motion.div
@@ -46,8 +78,8 @@ export function WelcomeBanner() {
             Buen día, {user.name.split(' ')[0]}
           </h1>
           <p className="mt-2 text-white/85 max-w-xl">
-            Hoy se han realizado <strong>{last24.length} evaluaciones</strong> con un promedio de{' '}
-            <strong>{last24Avg} ms</strong>. Hay <strong>{mockPatients.filter((p) => p.status === 'riesgo').length} pacientes</strong> en estado de riesgo que requieren seguimiento.
+            Hoy se han realizado <strong>{last24Count} evaluaciones</strong> con un promedio de{' '}
+            <strong>{last24Avg} ms</strong>. Hay <strong>{riskCount} pacientes</strong> en estado de riesgo que requieren seguimiento.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Button
@@ -71,29 +103,20 @@ export function WelcomeBanner() {
 
         <div className="rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 p-4">
           <div className="flex items-center justify-between text-xs uppercase tracking-wider text-white/70">
-            <span>Tendencia 24h</span>
-            <span className={isImproving ? 'text-emerald-200' : 'text-amber-200'}>
-              {isImproving ? <TrendingDown className="h-4 w-4 inline" /> : <TrendingUp className="h-4 w-4 inline" />}
-            </span>
+            <span>Últimas mediciones</span>
           </div>
           <div className="mt-3 space-y-2">
-            {recent.map((r) => {
-              const p = mockPatients.find((pp) => pp.id === r.patientId);
-              return (
-                <div key={r.id} className="flex items-center gap-2 text-sm">
-                  <span className="flex-1 truncate">{p?.fullName.split(' ')[0] ?? '—'}</span>
-                  <span className="font-mono font-semibold tabular-nums">{r.reactionMs}ms</span>
-                  <span className="text-xs text-white/60 w-16 text-right">{relativeTime(r.date + 'T' + r.time)}</span>
-                </div>
-              );
-            })}
+            {recentMeasurements.map((r) => (
+              <div key={r.id} className="flex items-center gap-2 text-sm">
+                <span className="flex-1 truncate">{r.patientName?.split(' ')[0] ?? '—'}</span>
+                <span className="font-mono font-semibold tabular-nums">{r.reactionMs}ms</span>
+                <span className="text-xs text-white/60 w-16 text-right">{relativeTime(r.date + 'T' + r.time)}</span>
+              </div>
+            ))}
+            {recentMeasurements.length === 0 && (
+              <p className="text-sm text-white/60">Sin mediciones recientes</p>
+            )}
           </div>
-          {diff > 0 && (
-            <div className="mt-3 flex items-center justify-between border-t border-white/15 pt-3 text-xs">
-              <span className="text-white/70">Cambio promedio</span>
-              <span className="font-semibold">{diff}%</span>
-            </div>
-          )}
           <button
             type="button"
             onClick={() => navigate('/reports')}

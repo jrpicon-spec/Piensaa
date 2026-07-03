@@ -2,7 +2,6 @@ import { motion } from 'framer-motion';
 import { AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
 import type { Alert } from '@/types';
 import { relativeTime } from '@/utils';
-import { mockPatients } from '@/data/mock';
 
 const icons = {
   critical: XCircle,
@@ -32,7 +31,6 @@ interface AlertsCardProps {
 
 export function AlertsCard({ alerts, limit = 5 }: AlertsCardProps) {
   const data = (alerts ?? []).slice(0, limit);
-  const patientsMap = new Map(mockPatients.map((p) => [p.id, p]));
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-card h-full flex flex-col">
@@ -49,7 +47,6 @@ export function AlertsCard({ alerts, limit = 5 }: AlertsCardProps) {
       <div className="mt-4 space-y-2 flex-1">
         {data.map((alert, idx) => {
           const Icon = icons[alert.type];
-          const patient = alert.patientId ? patientsMap.get(alert.patientId) : undefined;
           return (
             <motion.div
               key={alert.id}
@@ -66,12 +63,6 @@ export function AlertsCard({ alerts, limit = 5 }: AlertsCardProps) {
                 <p className="mt-0.5 text-xs opacity-90 line-clamp-2">{alert.description}</p>
                 <div className="mt-1.5 flex items-center gap-2 text-xs opacity-70">
                   <span>{relativeTime(alert.timestamp)}</span>
-                  {patient && (
-                    <>
-                      <span>•</span>
-                      <span className="font-medium">{patient.fullName}</span>
-                    </>
-                  )}
                 </div>
               </div>
             </motion.div>

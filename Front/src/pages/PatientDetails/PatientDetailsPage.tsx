@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -22,12 +22,9 @@ import { LineChartCard } from '@/components/charts/LineChartCard';
 import { BarChartCard } from '@/components/charts/BarChartCard';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { AlertsCard } from '@/components/alerts/AlertsCard';
-import {
-  mockAlerts,
-  mockCaregivers,
-  mockPatients,
-  mockReactionRecords,
-} from '@/data/mock';
+import { patientsService, type Patient } from '@/services/patients.service';
+import { measurementsService, type Measurement } from '@/services/measurements.service';
+import { usersService, type Caregiver } from '@/services/users.service';
 import {
   avg,
   calculateAge,
@@ -42,46 +39,80 @@ import {
 export function PatientDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-
-  const patient = mockPatients.find((p) => p.id === id);
-  const records = useMemo(
-    () => mockReactionRecords.filter((r) => r.patientId === id).sort((a, b) => new Date(b.date + 'T' + b.time).getTime() - new Date(a.date + 'T' + a.time).getTime()),
-    [id],
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [records, setRecords] = useState<Measurement[]>([]);
+  const [caregiver, setCaregiver] = useState<Caregiver | null>(null);
+  const [loading, setLoading] = useState(true);
+  const patientRecords = useMemo(
+    () =>
+      records
+        .slice()
+        .sort(
+          (a, b) =>
+            new Date(b.date + 'T' + b.time).getTime() - new Date(a.date + 'T' + a.time).getTime(),
+        ),
+    [records],
   );
-  const caregiver = patient?.caregiverId ? mockCaregivers.find((c) => c.id === patient.caregiverId) : undefined;
+  const stats = useMemo(() => {
+    if (patientRecords.length === 0) return { avg: 0, best: 0, worst: 0, total: 0 };
+    const times = patientRecords.map((r) => r.reactionMs);
+    return {
+      avg: avg(times),
+      best: Math.min(...times),
+      worst: Math.max(...times),
+      total: patientRecords.length,
+    };
+  }, [patientRecords]);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const [patientData, measurementsData, caregiversData] = await Promise.all([
+          patientsService.findOne(id!).catch(() => null),
+          measurementsService.findAll({ limit: 100 }).catch(() => ({ items: [] })),
+          usersService.findAll().catch(() => []),
+        ]);
+        setPatient(patientData);
+        if (patientData) {
+          setRecords(measurementsData.items.filter((m) => m.patientId === id));
+          if (patientData.caregiverId) {
+            const cg = caregiversData.find((c) => c.id === patientData.caregiverId);
+            setCaregiver(cg ?? null);
+          }
+        }
+      } catch {
+        setPatient(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (id) fetchData();
+  }, [id]);
+
+  if (loading) return <div className="p-6">Cargando...</div>;
 
   if (!patient) {
     return <Navigate to="/patients" replace />;
   }
 
-  const stats = useMemo(() => {
-    if (records.length === 0) return { avg: 0, best: 0, worst: 0, total: 0 };
-    const times = records.map((r) => r.reactionMs);
-    return {
-      avg: avg(times),
-      best: Math.min(...times),
-      worst: Math.max(...times),
-      total: records.length,
-    };
-  }, [records]);
-
-  const evolutionData = records
+  const evolutionData = patientRecords
     .slice()
     .reverse()
+    .slice(0, 14)
     .map((r) => ({
       label: formatDate(r.date),
       value: r.reactionMs,
     }));
 
-  const lastMeasurements = records.slice(0, 10).map((r) => ({
+  const lastMeasurements = patientRecords.slice(0, 10).map((r) => ({
     label: r.time.slice(0, 5),
     value: r.reactionMs,
     variant: r.status as 'normal' | 'atencion' | 'riesgo',
   }));
 
   const colors = getStatusColor(patient.status);
-  const age = patient.birthDate ? calculateAge(patient.birthDate) : patient.age;
-  const patientAlerts = mockAlerts.filter((a) => a.patientId === patient.id);
+  const age = patient.birthDate ? calculateAge(patient.birthDate) : 0;
 
   return (
     <div className="space-y-6">
@@ -233,14 +264,14 @@ export function PatientDetailsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {records.length === 0 ? (
+                  {patientRecords.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-6 py-10 text-center text-muted-foreground">
                         Sin registros de evaluación todavía.
                       </td>
                     </tr>
                   ) : (
-                    records.map((r, idx) => {
+                    patientRecords.map((r, idx) => {
                       const statusColors = getStatusColor(r.status);
                       return (
                         <motion.tr
@@ -290,7 +321,7 @@ export function PatientDetailsPage() {
 
         <TabsContent value="alerts">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <AlertsCard alerts={patientAlerts} limit={10} />
+            <AlertsCard alerts={[]} limit={10} />
             <div className="rounded-2xl border border-border bg-white p-5 shadow-card">
               <h3 className="text-base font-semibold text-foreground">Resumen clínico</h3>
               <p className="mt-0.5 text-xs text-muted-foreground">Información consolidada</p>

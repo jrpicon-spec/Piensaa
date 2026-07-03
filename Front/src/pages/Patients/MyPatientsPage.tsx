@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { HeartPulse, Plus, Search, Stethoscope } from 'lucide-react';
@@ -22,10 +22,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import { mockPatients } from '@/data/mock';
+import { patientsService, type Patient } from '@/services/patients.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import type { Patient, PatientStatus } from '@/types';
+import type { PatientStatus } from '@/types';
 
 export function MyPatientsPage() {
   const { user } = useAuth();
@@ -33,16 +33,30 @@ export function MyPatientsPage() {
   const { success } = useToast();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | PatientStatus>('all');
-  const [patients, setPatients] = useState<Patient[]>(mockPatients);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Patient | null>(null);
   const [toDelete, setToDelete] = useState<Patient | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const data = await patientsService.findAll();
+        setPatients(data);
+      } catch {
+        setPatients([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (user) fetchData();
+  }, [user]);
 
   if (!user) return null;
 
-  // En demo, el cuidador c-001 está asignado a los primeros pacientes
-  const caregiverId = 'c-001';
-  const myPatients = patients.filter((p) => p.caregiverId === caregiverId);
+  const myPatients = patients.filter((p) => p.caregiverId === user.id);
 
   const filtered = myPatients.filter((p) => {
     const matchesSearch = p.fullName.toLowerCase().includes(search.toLowerCase());
@@ -50,20 +64,55 @@ export function MyPatientsPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleSave = (patient: Patient) => {
-    setPatients((current) => {
-      const exists = current.find((p) => p.id === patient.id);
-      if (exists) return current.map((p) => (p.id === patient.id ? patient : p));
-      return [patient, ...current];
-    });
+  const handleSave = async (patient: Patient) => {
+    try {
+      if (editing) {
+        const [nombre, ...apellidoParts] = patient.fullName.split(' ');
+        const apellido = apellidoParts.join(' ');
+        const updated = await patientsService.update(patient.id, {
+          nombre,
+          apellido,
+          telefono: patient.phone,
+          direccion: patient.address,
+          responsable: patient.guardianName,
+          observaciones: patient.notes,
+          estado: patient.status,
+        });
+        setPatients((current) => current.map((p) => (p.id === patient.id ? updated : p)));
+      } else {
+        const [nombre, ...apellidoParts] = patient.fullName.split(' ');
+        const apellido = apellidoParts.join(' ');
+        const created = await patientsService.create({
+          nombre,
+          apellido,
+          fecha_nacimiento: patient.birthDate,
+          sexo: patient.gender,
+          telefono: patient.phone,
+          direccion: patient.address,
+          responsable: patient.guardianName,
+          observaciones: patient.notes,
+          cuidador_id: user.id,
+        });
+        setPatients((current) => [created, ...current]);
+      }
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!toDelete) return;
-    setPatients((current) => current.filter((p) => p.id !== toDelete.id));
-    success('Paciente eliminado', `${toDelete.fullName} fue removido del sistema`);
-    setToDelete(null);
+    try {
+      await patientsService.remove(toDelete.id);
+      setPatients((current) => current.filter((p) => p.id !== toDelete.id));
+      success('Paciente eliminado', `${toDelete.fullName} fue removido del sistema`);
+      setToDelete(null);
+    } catch (err) {
+      throw err;
+    }
   };
+
+  if (loading) return <div className="p-6">Cargando...</div>;
 
   return (
     <div className="space-y-6">

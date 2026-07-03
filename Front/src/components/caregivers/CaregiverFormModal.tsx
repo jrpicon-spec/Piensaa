@@ -47,8 +47,8 @@ export function CaregiverFormModal({ open, onOpenChange, caregiver, onSave }: Ca
       if (caregiver) {
         setValues({
           name: caregiver.name,
-          email: caregiver.email,
-          phone: caregiver.phone,
+          email: caregiver.email || '',
+          phone: caregiver.phone || '',
           status: caregiver.status,
         });
       } else {
@@ -77,6 +77,7 @@ export function CaregiverFormModal({ open, onOpenChange, caregiver, onSave }: Ca
       email: values.email,
       phone: values.phone,
       status: values.status,
+      role: caregiver?.role ?? 'cuidador',
       patientsCount: caregiver?.patientsCount ?? 0,
       patientIds: caregiver?.patientIds ?? [],
       avatar: caregiver?.avatar ?? generateAvatarUrl(values.name),

@@ -24,8 +24,8 @@ export function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { success } = useToast();
-  const [email, setEmail] = useState('valentina.rios@reaccionvital.com');
-  const [password, setPassword] = useState('demo1234');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('admin');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,16 +52,6 @@ export function LoginPage() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const fillDemo = (selectedRole: UserRole) => {
-    setRole(selectedRole);
-    if (selectedRole === 'admin') {
-      setEmail('valentina.rios@reaccionvital.com');
-    } else {
-      setEmail('carlos.mendoza@reaccionvital.com');
-    }
-    setPassword('demo1234');
   };
 
   return (
@@ -153,14 +143,14 @@ export function LoginPage() {
 
           <h1 className="text-3xl font-semibold tracking-tight">Iniciar sesión</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Accede a la plataforma con tus credenciales o elige un rol de demostración.
+            Accede a la plataforma con tus credenciales y selecciona tu rol.
           </p>
 
           {/* Role selector */}
           <div className="mt-6 grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => fillDemo('admin')}
+              onClick={() => setRole('admin')}
               className={cn(
                 'flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition-all',
                 role === 'admin'
@@ -181,7 +171,7 @@ export function LoginPage() {
             </button>
             <button
               type="button"
-              onClick={() => fillDemo('caregiver')}
+              onClick={() => setRole('caregiver')}
               className={cn(
                 'flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition-all',
                 role === 'caregiver'
@@ -274,7 +264,7 @@ export function LoginPage() {
             </p>
 
             <p className="text-center text-xs text-muted-foreground">
-              Plataforma de demostración · ReacciónVital v1.0
+              ReacciónVital
             </p>
           </form>
         </motion.div>

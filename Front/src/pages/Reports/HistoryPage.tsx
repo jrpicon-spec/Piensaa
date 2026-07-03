@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Filter, History, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/Select';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/PageHeader';
-import { mockCaregivers, mockPatients, mockReactionRecords } from '@/data/mock';
+import { measurementsService, type Measurement } from '@/services/measurements.service';
+import { patientsService, type Patient } from '@/services/patients.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn, formatDate, getStatusColor } from '@/utils';
 import { motion } from 'framer-motion';
@@ -23,25 +24,45 @@ export function HistoryPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<'all' | PatientStatus>('all');
+  const [records, setRecords] = useState<Measurement[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(true);
+  const myPatientIds = patients.filter((p) => p.caregiverId === user?.id).map((p) => p.id);
+  const patientsMap = new Map(patients.map((p) => [p.id, p]));
 
-  if (!user) return null;
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const [measurementsData, patientsData] = await Promise.all([
+          measurementsService.findAll({ limit: 100 }),
+          patientsService.findAll(),
+        ]);
+        setRecords(measurementsData.items);
+        setPatients(patientsData);
+      } catch {
+        setRecords([]);
+        setPatients([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
 
-  // Cuidador demo: c-001
-  const caregiverId = 'c-001';
-  const myPatientIds = mockPatients.filter((p) => p.caregiverId === caregiverId).map((p) => p.id);
-
-  const records = useMemo(() => {
-    return mockReactionRecords
+  const filteredRecords = useMemo(() => {
+    return records
       .filter((r) => myPatientIds.includes(r.patientId))
       .filter((r) => (status === 'all' ? true : r.status === status))
       .filter((r) => {
         if (!search) return true;
-        const p = mockPatients.find((pp) => pp.id === r.patientId);
+        const p = patientsMap.get(r.patientId);
         return p?.fullName.toLowerCase().includes(search.toLowerCase()) ?? false;
       })
       .sort((a, b) => new Date(b.date + 'T' + b.time).getTime() - new Date(a.date + 'T' + a.time).getTime());
-  }, [search, status, myPatientIds]);
+  }, [records, search, status, myPatientIds, patientsMap]);
 
+  if (!user) return null;
   return (
     <div className="space-y-6">
       <PageHeader
@@ -81,9 +102,8 @@ export function HistoryPage() {
         />
       ) : (
         <div className="space-y-2">
-          {records.slice(0, 30).map((r, idx) => {
-            const p = mockPatients.find((pp) => pp.id === r.patientId);
-            const cg = p?.caregiverId ? mockCaregivers.find((c) => c.id === p.caregiverId) : undefined;
+          {filteredRecords.slice(0, 30).map((r, idx) => {
+            const p = patientsMap.get(r.patientId);
             const colors = getStatusColor(r.status);
             return (
               <motion.button
@@ -101,7 +121,7 @@ export function HistoryPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground">{p?.fullName ?? '—'}</p>
                   <p className="text-xs text-muted-foreground">
-                    {formatDate(r.date)} · {r.time} {cg && `· ${cg.name}`}
+                    {formatDate(r.date)} · {r.time}
                   </p>
                 </div>
                 <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold', colors.bg, colors.text)}>

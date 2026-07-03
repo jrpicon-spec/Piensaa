@@ -8,9 +8,9 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Stethoscope,
   UserCog,
   ChevronDown,
-  Stethoscope,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebar } from '@/contexts/SidebarContext';
@@ -27,18 +27,16 @@ import {
 } from '@/components/ui/DropdownMenu';
 import { Input } from '@/components/ui/Input';
 import { getInitials } from '@/utils';
-import { mockAlerts } from '@/data/mock';
-import type { UserRole } from '@/types';
 
 export function Topbar() {
-  const { user, logout, switchRole } = useAuth();
+  const { user, logout } = useAuth();
   const { setMobileOpen } = useSidebar();
   const navigate = useNavigate();
   const [searchOpen, setSearchOpen] = useState(false);
 
   if (!user) return null;
 
-  const unreadAlerts = mockAlerts.filter((a) => !a.resolved).length;
+  const unreadAlerts = 0;
 
   const handleLogout = () => {
     logout();
@@ -112,28 +110,9 @@ export function Topbar() {
               <DropdownMenuLabel>Notificaciones recientes</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <div className="max-h-80 overflow-y-auto">
-                {mockAlerts.slice(0, 5).map((alert) => (
-                  <div
-                    key={alert.id}
-                    className="flex items-start gap-3 rounded-md px-2 py-2 hover:bg-slate-50 cursor-pointer"
-                  >
-                    <div
-                      className={`mt-0.5 h-2 w-2 flex-shrink-0 rounded-full ${
-                        alert.type === 'critical'
-                          ? 'bg-rose-500'
-                          : alert.type === 'warning'
-                          ? 'bg-amber-500'
-                          : alert.type === 'success'
-                          ? 'bg-emerald-500'
-                          : 'bg-sky-500'
-                      }`}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground">{alert.title}</p>
-                      <p className="text-xs text-muted-foreground line-clamp-2">{alert.description}</p>
-                    </div>
-                  </div>
-                ))}
+                <div className="py-4 text-center text-sm text-muted-foreground">
+                  No hay notificaciones
+                </div>
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -163,16 +142,6 @@ export function Topbar() {
                   <span className="text-xs text-muted-foreground truncate">{user.email}</span>
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs text-muted-foreground">
-                Cambiar rol (demo)
-              </DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => switchRole('admin' satisfies UserRole)}>
-                <ShieldCheck className="h-4 w-4 text-sky-600" /> Administrador
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => switchRole('caregiver' satisfies UserRole)}>
-                <Stethoscope className="h-4 w-4 text-emerald-600" /> Cuidador
-              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate('/profile')}>
                 <UserCog className="h-4 w-4" /> Mi perfil

@@ -98,8 +98,6 @@ export function RegisterPage() {
         rol: formData.rol,
       };
 
-      console.log('[RegisterPage] Payload enviado al backend:', dto);
-
       const response = await authService.register(dto);
 
       if (response.success && response.data) {
@@ -412,7 +410,7 @@ export function RegisterPage() {
             </p>
 
             <p className="text-center text-xs text-muted-foreground">
-              Plataforma de demostración · ReacciónVital v1.0
+              ReacciónVital
             </p>
           </form>
         </motion.div>

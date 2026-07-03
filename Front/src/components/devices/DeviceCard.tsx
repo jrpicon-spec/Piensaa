@@ -36,8 +36,9 @@ const protocolColors: Record<string, string> = {
 
 export function DeviceCard({ device, index = 0, onConnect, onTest, onConfigure }: DeviceCardProps) {
   const isConnected = device.status === 'conectado';
+  const wifiStrength = device.wifiStrength ?? 0;
   const wifiQuality =
-    device.wifiStrength >= 80 ? 'Excelente' : device.wifiStrength >= 60 ? 'Buena' : device.wifiStrength >= 40 ? 'Regular' : 'Débil';
+    wifiStrength >= 80 ? 'Excelente' : wifiStrength >= 60 ? 'Buena' : wifiStrength >= 40 ? 'Regular' : 'Débil';
 
   return (
     <motion.div
@@ -93,8 +94,8 @@ export function DeviceCard({ device, index = 0, onConnect, onTest, onConfigure }
           <StatusDot variant={isConnected ? 'success' : 'danger'} />
           {isConnected ? 'Conectado' : 'Desconectado'}
         </Badge>
-        <span className={cn('rounded-md border px-2 py-0.5 text-xs font-semibold', protocolColors[device.protocol])}>
-          {device.protocol}
+        <span className={cn('rounded-md border px-2 py-0.5 text-xs font-semibold', protocolColors[device.protocol ?? 'API REST'])}>
+          {device.protocol ?? 'API REST'}
         </span>
       </div>
 
@@ -107,23 +108,23 @@ export function DeviceCard({ device, index = 0, onConnect, onTest, onConfigure }
         </div>
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">Última conexión</span>
-          <span className="font-medium text-foreground">{relativeTime(device.lastConnection)}</span>
+          <span className="font-medium text-foreground">{relativeTime(device.lastConnection ?? new Date().toISOString())}</span>
         </div>
         <div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground flex items-center gap-1.5">
               <Wifi className="h-3.5 w-3.5" /> Señal WiFi
             </span>
-            <span className="font-medium text-foreground">{device.wifiStrength}% · {wifiQuality}</span>
+            <span className="font-medium text-foreground">{wifiStrength}% · {wifiQuality}</span>
           </div>
           <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: `${device.wifiStrength}%` }}
+              animate={{ width: `${wifiStrength}%` }}
               transition={{ delay: index * 0.05 + 0.2, duration: 0.8 }}
               className={cn(
                 'h-full rounded-full',
-                device.wifiStrength >= 60 ? 'bg-emerald-500' : device.wifiStrength >= 40 ? 'bg-amber-500' : 'bg-rose-500',
+                wifiStrength >= 60 ? 'bg-emerald-500' : wifiStrength >= 40 ? 'bg-amber-500' : 'bg-rose-500',
               )}
             />
           </div>

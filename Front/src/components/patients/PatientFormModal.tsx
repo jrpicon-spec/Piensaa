@@ -46,13 +46,13 @@ interface PatientFormModalProps {
 const defaultValues: PatientFormValues = {
   fullName: '',
   birthDate: '',
-  gender: 'femenino',
+  gender: '' as Gender,
   phone: '',
   address: '',
   guardianName: '',
   guardianPhone: '',
   notes: '',
-  status: 'normal',
+  status: 'normal' as PatientStatus,
   caregiverId: '',
 };
 

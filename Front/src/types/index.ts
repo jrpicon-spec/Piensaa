@@ -13,14 +13,14 @@ export interface User {
 }
 
 export type PatientStatus = 'normal' | 'atencion' | 'riesgo';
-export type Gender = 'masculino' | 'femenino' | 'otro';
+export type Gender = 'masculino' | 'femenino';
 
 export interface Patient {
   id: string;
   fullName: string;
-  age: number;
-  gender: Gender;
+  age?: number;
   birthDate: string;
+  gender: 'masculino' | 'femenino';
   phone: string;
   address: string;
   guardianName: string;
@@ -30,7 +30,7 @@ export interface Patient {
   status: PatientStatus;
   caregiverId?: string;
   lastEvaluation?: string;
-  createdAt: string;
+  createdAt?: string;
 }
 
 export interface ReactionRecord {
@@ -47,27 +47,34 @@ export interface Caregiver {
   id: string;
   name: string;
   email: string;
-  phone: string;
+  phone?: string;
   status: 'activo' | 'inactivo';
-  patientsCount: number;
-  patientIds: string[];
+  role: 'admin' | 'cuidador';
+  patientsCount?: number;
+  patientIds?: string[];
   avatar?: string;
-  createdAt: string;
+  createdAt?: string;
 }
 
 export type DeviceStatus = 'conectado' | 'desconectado';
 
 export interface Device {
   id: string;
-  name: string;
-  status: DeviceStatus;
-  ipAddress: string;
-  macAddress: string;
-  lastConnection: string;
-  wifiStrength: number;
-  firmware: string;
-  assignedPatientId?: string;
-  protocol: 'API REST' | 'WebSocket' | 'MQTT';
+  estado?: 'conectado' | 'desconectado';
+  ip_address?: string;
+  mac_address?: string;
+  ultima_conexion?: string;
+  fuerza_wifi?: number;
+  firmware?: string;
+  paciente_asignado_id?: string;
+  nombre?: string;
+  status?: 'conectado' | 'desconectado';
+  lastConnection?: string;
+  wifiStrength?: number;
+  name?: string;
+  macAddress?: string;
+  protocol?: 'API REST' | 'WebSocket' | 'MQTT';
+  ipAddress?: string;
 }
 
 export interface Alert {

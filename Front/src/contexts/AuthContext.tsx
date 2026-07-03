@@ -1,22 +1,19 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import type { User, UserRole } from '@/types';
-import { mockUsers } from '@/data/mock';
 import { authService } from '@/services/auth.service';
+import { clearStoredToken, getStoredToken, setStoredToken } from '@/services/auth-storage';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string, role?: UserRole) => Promise<boolean>;
   logout: () => void;
-  switchRole: (role: UserRole) => void;
   loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'reaccionvital:auth';
-const TOKEN_STORAGE_KEY = 'reaccionvital:token';
-
 const mapBackendRole = (rol: string): UserRole => (rol === 'cuidador' ? 'caregiver' : 'admin');
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -29,16 +26,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (stored) {
         setUser(JSON.parse(stored) as User);
       }
+      const token = getStoredToken();
+      if (token) {
+        setStoredToken(token);
+      }
     } catch {
       // ignore parse errors
     }
     setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string, _role?: UserRole): Promise<boolean> => {
+  const login = async (email: string, password: string, role?: UserRole): Promise<boolean> => {
     const response = await authService.login({ email, password });
 
     if (!response.success || !response.data) {
+      return false;
+    }
+
+    const backendRole = mapBackendRole(response.data.user.rol);
+    if (role && backendRole !== role) {
       return false;
     }
 
@@ -46,28 +52,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: response.data.user.id,
       name: response.data.user.nombre,
       email: response.data.user.email,
-      role: mapBackendRole(response.data.user.rol),
+      role: backendRole,
       createdAt: new Date().toISOString(),
     };
 
     setUser(authenticatedUser);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(authenticatedUser));
-    localStorage.setItem(TOKEN_STORAGE_KEY, response.data.accessToken);
+    setStoredToken(response.data.accessToken);
     return true;
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
-  };
-
-  const switchRole = (role: UserRole) => {
-    const target = mockUsers.find((u) => u.role === role);
-    if (target) {
-      setUser(target);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(target));
-    }
+    clearStoredToken();
   };
 
   return (
@@ -77,7 +75,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         login,
         logout,
-        switchRole,
         loading,
       }}
     >

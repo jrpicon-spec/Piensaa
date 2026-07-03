@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Search, Stethoscope, Users } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -14,39 +14,75 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import { mockCaregivers } from '@/data/mock';
+import { usersService, type Caregiver } from '@/services/users.service';
 import { useToast } from '@/contexts/ToastContext';
-import type { Caregiver } from '@/types';
 
 export function CaregiversPage() {
   const { success } = useToast();
-  const [caregivers, setCaregivers] = useState<Caregiver[]>(mockCaregivers);
+  const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Caregiver | null>(null);
   const [toDelete, setToDelete] = useState<Caregiver | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const data = await usersService.findAll();
+        setCaregivers(data.filter((u) => u.role === 'cuidador'));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al cargar datos');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
 
   const filtered = caregivers.filter(
     (c) => c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase()),
   );
 
   const totalActive = caregivers.filter((c) => c.status === 'activo').length;
-  const totalPatients = caregivers.reduce((sum, c) => sum + c.patientsCount, 0);
+  const totalPatients = caregivers.reduce((sum, c) => sum + (c.patientsCount ?? 0), 0);
 
-  const handleSave = (cg: Caregiver) => {
-    setCaregivers((current) => {
-      const exists = current.find((c) => c.id === cg.id);
-      if (exists) return current.map((c) => (c.id === cg.id ? cg : c));
-      return [cg, ...current];
-    });
+  const handleSave = async (cg: Caregiver) => {
+    try {
+      if (editing) {
+        const updated = await usersService.update(cg.id, { nombre: cg.name });
+        setCaregivers((current) => current.map((c) => (c.id === cg.id ? { ...c, ...updated } : c)));
+      } else {
+        const created = await usersService.create({
+          email: cg.email,
+          password: crypto.randomUUID(),
+          nombre: cg.name,
+          telefono: cg.phone,
+          rol: 'cuidador',
+        });
+        setCaregivers((current) => [created, ...current]);
+      }
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!toDelete) return;
-    setCaregivers((current) => current.filter((c) => c.id !== toDelete.id));
-    success('Cuidador eliminado', `${toDelete.name} fue removido del sistema`);
-    setToDelete(null);
+    try {
+      await usersService.remove(toDelete.id);
+      setCaregivers((current) => current.filter((c) => c.id !== toDelete.id));
+      success('Cuidador eliminado', `${toDelete.name} fue removido del sistema`);
+      setToDelete(null);
+    } catch (err) {
+      throw err;
+    }
   };
+
+  if (loading) return <div className="p-6">Cargando...</div>;
+  if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
 
   return (
     <div className="space-y-6">

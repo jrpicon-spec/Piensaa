@@ -14,13 +14,13 @@ import { formatDate, getInitials } from '@/utils';
 export function ProfilePage() {
   const { user } = useAuth();
   const { success } = useToast();
-  if (!user) return null;
-
   const [form, setForm] = useState({
-    name: user.name,
-    email: user.email,
-    phone: user.phone ?? '',
+    name: user?.name ?? '',
+    email: user?.email ?? '',
+    phone: user?.phone ?? '',
   });
+
+  if (!user) return null;
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();

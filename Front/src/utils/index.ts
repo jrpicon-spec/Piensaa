@@ -114,9 +114,21 @@ export function generateRandomReaction(): number {
 }
 
 export function generateAvatarUrl(seed: string): string {
-  // Genera una URL de avatar con iniciales usando un servicio placeholder
-  const encoded = encodeURIComponent(seed);
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${encoded}&backgroundColor=e0f2fe,bbdefb,c8e6c9,dcedc8,fff9c4&textColor=0c4a6e`;
+  const initials = getInitials(seed) || 'U';
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="${seed}">
+      <defs>
+        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#e0f2fe" />
+          <stop offset="100%" stop-color="#c7f9cc" />
+        </linearGradient>
+      </defs>
+      <rect width="120" height="120" rx="32" fill="url(#g)" />
+      <circle cx="60" cy="54" r="22" fill="#0f172a" fill-opacity="0.08" />
+      <text x="60" y="67" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#0c4a6e">${initials}</text>
+    </svg>
+  `;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg.trim())}`;
 }
 
 export function clamp(value: number, min: number, max: number): number {

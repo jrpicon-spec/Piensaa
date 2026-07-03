@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Filter, Plus, Search, Users } from 'lucide-react';
@@ -23,20 +23,43 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import { mockCaregivers, mockPatients } from '@/data/mock';
+import { patientsService, type Patient } from '@/services/patients.service';
+import { usersService, type Caregiver } from '@/services/users.service';
 import { useToast } from '@/contexts/ToastContext';
-import type { Patient, PatientStatus } from '@/types';
+import type { PatientStatus } from '@/types';
 
 export function PatientsPage() {
   const navigate = useNavigate();
   const { success } = useToast();
-  const [patients, setPatients] = useState<Patient[]>(mockPatients);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | PatientStatus>('all');
   const [caregiverFilter, setCaregiverFilter] = useState<'all' | string>('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const [patientsData, caregiversData] = await Promise.all([
+          patientsService.findAll(),
+          usersService.findAll(),
+        ]);
+        setPatients(patientsData);
+        setCaregivers(caregiversData.filter((c) => c.role === 'cuidador'));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al cargar datos');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
 
   const filtered = patients.filter((p) => {
     const matchesSearch =
@@ -55,22 +78,55 @@ export function PatientsPage() {
     riesgo: patients.filter((p) => p.status === 'riesgo').length,
   };
 
-  const handleSave = (patient: Patient) => {
-    setPatients((current) => {
-      const exists = current.find((p) => p.id === patient.id);
-      if (exists) {
-        return current.map((p) => (p.id === patient.id ? patient : p));
+  const handleSave = async (patient: Patient) => {
+    try {
+      if (editingPatient) {
+        const [nombre, ...apellidoParts] = patient.fullName.split(' ');
+        const apellido = apellidoParts.join(' ');
+        const updated = await patientsService.update(patient.id, {
+          nombre,
+          apellido,
+          telefono: patient.phone,
+          direccion: patient.address,
+          responsable: patient.guardianName,
+          observaciones: patient.notes,
+          estado: patient.status,
+        });
+        setPatients((current) => current.map((p) => (p.id === patient.id ? updated : p)));
+      } else {
+        const [nombre, ...apellidoParts] = patient.fullName.split(' ');
+        const apellido = apellidoParts.join(' ');
+        const created = await patientsService.create({
+          nombre,
+          apellido,
+          fecha_nacimiento: patient.birthDate,
+          sexo: patient.gender,
+          telefono: patient.phone,
+          direccion: patient.address,
+          responsable: patient.guardianName,
+          observaciones: patient.notes,
+        });
+        setPatients((current) => [created, ...current]);
       }
-      return [patient, ...current];
-    });
+    } catch (err) {
+      throw err;
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!patientToDelete) return;
-    setPatients((current) => current.filter((p) => p.id !== patientToDelete.id));
-    success('Paciente eliminado', `${patientToDelete.fullName} fue removido del sistema`);
-    setPatientToDelete(null);
+    try {
+      await patientsService.remove(patientToDelete.id);
+      setPatients((current) => current.filter((p) => p.id !== patientToDelete.id));
+      success('Paciente eliminado', `${patientToDelete.fullName} fue removido del sistema`);
+      setPatientToDelete(null);
+    } catch (err) {
+      throw err;
+    }
   };
+
+  if (loading) return <div className="p-6">Cargando...</div>;
+  if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
 
   return (
     <div className="space-y-6">
@@ -142,7 +198,7 @@ export function PatientsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los cuidadores</SelectItem>
-              {mockCaregivers.map((c) => (
+              {caregivers.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
                 </SelectItem>
