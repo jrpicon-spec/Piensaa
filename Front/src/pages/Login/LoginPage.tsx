@@ -239,7 +239,7 @@ export function LoginPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">Demo: cualquier contraseña es válida.</p>
+              <p className="text-xs text-muted-foreground">Usa las credenciales registradas en el sistema.</p>
             </div>
 
             {error && (

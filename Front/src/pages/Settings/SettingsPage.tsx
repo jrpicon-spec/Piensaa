@@ -28,7 +28,7 @@ export function SettingsPage() {
     thresholdNormal: 350,
     thresholdAtencion: 500,
     dataRetention: 365,
-    apiBaseUrl: 'https://api.reaccionvital.com',
+    apiBaseUrl: import.meta.env.VITE_API_URL,
     websocketUrl: 'wss://ws.reaccionvital.com',
     mqttBroker: 'mqtt://broker.reaccionvital.com',
   });

@@ -29,7 +29,7 @@ export function RegisterPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    rol: 'admin' as 'admin' | 'caregiver',
+    rol: 'admin' as 'admin' | 'cuidador',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -71,6 +71,10 @@ export function RegisterPage() {
       newErrors.confirmPassword = 'Las contraseñas no coinciden';
     }
 
+    if (!['admin', 'cuidador'].includes(formData.rol)) {
+      newErrors.rol = 'Debe elegir un rol';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -93,6 +97,8 @@ export function RegisterPage() {
         password: formData.password,
         rol: formData.rol,
       };
+
+      console.log('[RegisterPage] Payload enviado al backend:', dto);
 
       const response = await authService.register(dto);
 
@@ -300,7 +306,7 @@ export function RegisterPage() {
                       <span>Administrador</span>
                     </div>
                   </SelectItem>
-                  <SelectItem value="caregiver">
+                  <SelectItem value="cuidador">
                     <div className="flex items-center gap-2">
                       <Stethoscope className="h-4 w-4 text-emerald-600" />
                       <span>Cuidador</span>

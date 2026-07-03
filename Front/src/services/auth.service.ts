@@ -1,12 +1,12 @@
 // Servicio de autenticación para comunicación con el backend
 
-const API_BASE = '/api';
+export const API_BASE = import.meta.env.VITE_API_URL.replace(/\/+$/, '');
 
 export interface RegisterDto {
   nombre: string;
   email: string;
   password: string;
-  rol: 'admin' | 'caregiver';
+  rol: 'admin' | 'cuidador';
 }
 
 export interface AuthResponse {
