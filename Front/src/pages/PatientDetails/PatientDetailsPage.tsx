@@ -25,6 +25,7 @@ import { AlertsCard } from '@/components/alerts/AlertsCard';
 import { patientsService, type Patient } from '@/services/patients.service';
 import { measurementsService, type Measurement } from '@/services/measurements.service';
 import { usersService, type Caregiver } from '@/services/users.service';
+import { useSocket } from '@/contexts/SocketContext';
 import {
   avg,
   calculateAge,
@@ -39,10 +40,27 @@ import {
 export function PatientDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { socket, startTest } = useSocket();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [records, setRecords] = useState<Measurement[]>([]);
   const [caregiver, setCaregiver] = useState<Caregiver | null>(null);
   const [loading, setLoading] = useState(true);
+
+  async function refreshData(patientId: string) {
+    const [patientData, measurementsData, caregiversData] = await Promise.all([
+      patientsService.findOne(patientId).catch(() => null),
+      measurementsService.findAll({ limit: 100 }).catch(() => ({ items: [] })),
+      usersService.findAll().catch(() => []),
+    ]);
+    setPatient(patientData);
+    if (patientData) {
+      setRecords(measurementsData.items.filter((m) => m.patientId === patientId));
+      if (patientData.caregiverId) {
+        const cg = caregiversData.find((c) => c.id === patientData.caregiverId);
+        setCaregiver(cg ?? null);
+      }
+    }
+  }
   const patientRecords = useMemo(
     () =>
       records
@@ -68,19 +86,7 @@ export function PatientDetailsPage() {
     async function fetchData() {
       try {
         setLoading(true);
-        const [patientData, measurementsData, caregiversData] = await Promise.all([
-          patientsService.findOne(id!).catch(() => null),
-          measurementsService.findAll({ limit: 100 }).catch(() => ({ items: [] })),
-          usersService.findAll().catch(() => []),
-        ]);
-        setPatient(patientData);
-        if (patientData) {
-          setRecords(measurementsData.items.filter((m) => m.patientId === id));
-          if (patientData.caregiverId) {
-            const cg = caregiversData.find((c) => c.id === patientData.caregiverId);
-            setCaregiver(cg ?? null);
-          }
-        }
+        await refreshData(id!);
       } catch {
         setPatient(null);
       } finally {
@@ -89,6 +95,21 @@ export function PatientDetailsPage() {
     }
     if (id) fetchData();
   }, [id]);
+
+  useEffect(() => {
+    if (!socket || !id) return;
+
+    const onTestFinished = (payload: { measurement?: { patientId?: string } }) => {
+      if (payload.measurement?.patientId === id) {
+        void refreshData(id);
+      }
+    };
+
+    socket.on('testFinished', onTestFinished);
+    return () => {
+      socket.off('testFinished', onTestFinished);
+    };
+  }, [socket, id]);
 
   if (loading) return <div className="p-6">Cargando...</div>;
 
@@ -153,9 +174,14 @@ export function PatientDetailsPage() {
                 <Pencil className="h-4 w-4" />
                 Editar
               </Button>
-              <Button>
+              <Button
+                onClick={() => {
+                  if (!patient) return;
+                  startTest({ patientId: patient.id });
+                }}
+              >
                 <HeartPulse className="h-4 w-4" />
-                Nueva evaluación
+                Iniciar prueba
               </Button>
             </div>
           </div>

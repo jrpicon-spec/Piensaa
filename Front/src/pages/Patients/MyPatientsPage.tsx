@@ -25,12 +25,14 @@ import {
 import { patientsService, type Patient } from '@/services/patients.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useSocket } from '@/contexts/SocketContext';
 import type { PatientStatus } from '@/types';
 
 export function MyPatientsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { success } = useToast();
+  const { startTest } = useSocket();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | PatientStatus>('all');
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -206,6 +208,7 @@ export function MyPatientsPage() {
               }}
               onDelete={(pat) => setToDelete(pat)}
               onView={(pat) => navigate(`/patients/${pat.id}`)}
+              onStartTest={(pat) => startTest({ patientId: pat.id })}
             />
           ))}
         </div>

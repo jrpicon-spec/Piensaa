@@ -24,6 +24,7 @@ import { measurementsService, type Measurement } from '@/services/measurements.s
 import { patientsService, type Patient } from '@/services/patients.service';
 import { usersService } from '@/services/users.service';
 import { avg } from '@/utils';
+import { useSocket } from '@/contexts/SocketContext';
 
 interface DashboardData {
   stats: {
@@ -44,6 +45,7 @@ export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { socket, deviceStatus } = useSocket();
 
   const stats = data?.stats;
   const measurements = data?.measurements ?? [];
@@ -82,6 +84,50 @@ export function DashboardPage() {
     }
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const refresh = async () => {
+      try {
+        const [stats, measurementsResult, patientsData, usersResult] = await Promise.all([
+          dashboardService.getStats().catch(() => ({
+            total_pacientes: 0,
+            total_cuidadores: 0,
+            promedio_general: 0,
+            ultima_medicion: null,
+            pacientes_en_riesgo: 0,
+            pacientes_por_estado: { normal: 0, atencion: 0, riesgo: 0 },
+          })),
+          measurementsService.findAll({ limit: 100 }).catch(() => ({ items: [], total: 0 })),
+          patientsService.findAll().catch(() => []),
+          usersService.findAll().catch(() => []),
+        ]);
+
+        setData({
+          stats,
+          measurements: measurementsResult.items,
+          patients: patientsData,
+          caregivers: usersResult.map((u: { estado?: string }) => ({ estado: u.estado ?? 'inactivo' })),
+        });
+      } catch {
+        // keep current data if refresh fails
+      }
+    };
+
+    const onTestFinished = () => {
+      void refresh();
+    };
+
+    socket.on('testFinished', onTestFinished);
+    if (deviceStatus) {
+      void refresh();
+    }
+
+    return () => {
+      socket.off('testFinished', onTestFinished);
+    };
+  }, [socket, deviceStatus]);
 
   const statsComputed = useMemo(() => {
     const times = measurements.map((r) => r.reactionMs);

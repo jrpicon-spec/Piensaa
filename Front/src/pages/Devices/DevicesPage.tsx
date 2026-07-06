@@ -14,9 +14,11 @@ import { PageHeader, EmptyState } from '@/components/ui/PageHeader';
 import { DeviceCard } from '@/components/devices/DeviceCard';
 import { deviceService, type Device } from '@/services/device.service';
 import { useToast } from '@/contexts/ToastContext';
+import { useSocket } from '@/contexts/SocketContext';
 
 export function DevicesPage() {
   const { success, info } = useToast();
+  const { deviceStatus } = useSocket();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'conectado' | 'desconectado'>('all');
   const [devices, setDevices] = useState<Device[]>([]);
@@ -36,6 +38,19 @@ export function DevicesPage() {
     }
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!deviceStatus) return;
+    setDevices((current) =>
+      current.map((device) => ({
+        ...device,
+        estado: deviceStatus.connected ? 'conectado' : 'desconectado',
+        status: deviceStatus.connected ? 'conectado' : 'desconectado',
+        lastConnection: deviceStatus.updatedAt,
+        ultima_conexion: deviceStatus.updatedAt,
+      })),
+    );
+  }, [deviceStatus]);
 
   const filtered = devices.filter((d) => {
     const name = d.nombre ?? d.id ?? '';

@@ -5,6 +5,7 @@ import { MeasurementsService } from '../measurements/measurements.service';
 import {
   DeviceResponse,
   StartTestDto,
+  StartTestSocketDto,
   UpdateDeviceDto,
 } from './dto/device.dto';
 import { DeviceStatus } from '../common/enums/clinical.enum';
@@ -16,6 +17,7 @@ const DEVICE_ID = '00000000-0000-4000-8000-000000000001';
 @Injectable()
 export class DeviceService {
   private currentPatientId: string | null = null;
+  private isConnected = false;
 
   constructor(
     private readonly supabaseService: SupabaseService,
@@ -71,11 +73,13 @@ export class DeviceService {
   }
 
   async connect(): Promise<DeviceResponse> {
+    this.isConnected = true;
     return this.update({ estado: DeviceStatus.CONECTADO });
   }
 
   async disconnect(): Promise<DeviceResponse> {
     this.currentPatientId = null;
+    this.isConnected = false;
     return this.update({ estado: DeviceStatus.DESCONECTADO });
   }
 
@@ -104,6 +108,31 @@ export class DeviceService {
     };
   }
 
+  async startSocketTest(dto: StartTestSocketDto): Promise<{
+    message: string;
+    patientId: string;
+    startedAt: string;
+    level?: string;
+  }> {
+    await this.patientsService.findOne(dto.patientId, {
+      id: 'system',
+      authId: 'system',
+      email: 'system@reaccionvital.local',
+      nombre: 'Sistema',
+      rol: 'admin',
+    } as AuthenticatedUser);
+
+    this.currentPatientId = dto.patientId;
+    await this.update({ estado: DeviceStatus.CONECTADO });
+
+    return {
+      message: 'Prueba iniciada y enviada al ESP32',
+      patientId: dto.patientId,
+      startedAt: new Date().toISOString(),
+      level: dto.level,
+    };
+  }
+
   async receiveResult(reactionTime: number): Promise<MeasurementResponse> {
     if (typeof reactionTime !== 'number' || Number.isNaN(reactionTime)) {
       throw new BadRequestException(
@@ -121,8 +150,36 @@ export class DeviceService {
     return measurement;
   }
 
+  async receiveSocketResult(reactionTime: number, patientId: string): Promise<MeasurementResponse> {
+    if (typeof reactionTime !== 'number' || Number.isNaN(reactionTime)) {
+      throw new BadRequestException('reactionTime debe ser un número en milisegundos');
+    }
+
+    await this.patientsService.findOne(patientId, {
+      id: 'system',
+      authId: 'system',
+      email: 'system@reaccionvital.local',
+      nombre: 'Sistema',
+      rol: 'admin',
+    } as AuthenticatedUser);
+
+    const measurement = await this.measurementsService.createFromDevice(reactionTime, patientId);
+    if (this.currentPatientId === patientId) {
+      this.currentPatientId = null;
+    }
+    return measurement;
+  }
+
   getCurrentPatient(): string | null {
     return this.currentPatientId;
+  }
+
+  setCurrentPatient(patientId: string | null): void {
+    this.currentPatientId = patientId;
+  }
+
+  isDeviceConnected(): boolean {
+    return this.isConnected;
   }
 
   private async seedDefaultDevice(): Promise<Record<string, unknown>> {

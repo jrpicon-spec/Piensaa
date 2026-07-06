@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Calendar, Eye, MoreVertical, Pencil, Phone, Trash2 } from 'lucide-react';
+import { Calendar, Eye, HeartPulse, MoreVertical, Pencil, Phone, Trash2 } from 'lucide-react';
 import type { Patient } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -26,9 +26,10 @@ interface PatientCardProps {
   onEdit?: (patient: Patient) => void;
   onDelete?: (patient: Patient) => void;
   onView?: (patient: Patient) => void;
+  onStartTest?: (patient: Patient) => void;
 }
 
-export function PatientCard({ patient, index = 0, onEdit, onDelete, onView }: PatientCardProps) {
+export function PatientCard({ patient, index = 0, onEdit, onDelete, onView, onStartTest }: PatientCardProps) {
   const colors = getStatusColor(patient.status);
   const age = patient.birthDate ? calculateAge(patient.birthDate) : patient.age;
 
@@ -93,10 +94,18 @@ export function PatientCard({ patient, index = 0, onEdit, onDelete, onView }: Pa
           <span className={cn('h-1.5 w-1.5 rounded-full mr-1', colors.dot)} />
           {colors.label}
         </Badge>
-        <Button variant="ghost" size="sm" onClick={() => onView?.(patient)}>
-          Ver perfil
-          <Eye className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex gap-1.5">
+          {onStartTest && (
+            <Button variant="outline" size="sm" onClick={() => onStartTest(patient)}>
+              Iniciar prueba
+              <HeartPulse className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => onView?.(patient)}>
+            Ver perfil
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
     </motion.div>
   );

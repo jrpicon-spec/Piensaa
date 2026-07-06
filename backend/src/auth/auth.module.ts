@@ -37,6 +37,6 @@ const DEFAULT_EXPIRES_IN: StringValue = '7d' as StringValue;
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
-  exports: [AuthService],
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

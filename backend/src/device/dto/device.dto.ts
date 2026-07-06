@@ -23,12 +23,37 @@ export class StartTestDto {
   paciente_id!: string;
 }
 
+export class StartTestSocketDto {
+  @IsString()
+  @IsNotEmpty({ message: 'El paciente es obligatorio' })
+  patientId!: string;
+
+  @IsOptional()
+  @IsString()
+  level?: string;
+}
+
 export class DeviceResultDto {
   @IsOptional()
   reactionTime?: number;
 
   @IsOptional()
   tiempo_reaccion?: number;
+}
+
+export class TestFinishedSocketDto {
+  @IsString()
+  @IsNotEmpty({ message: 'El paciente es obligatorio' })
+  patientId!: string;
+
+  @IsOptional()
+  reactionTime?: number;
+
+  @IsOptional()
+  tiempo_reaccion?: number;
+
+  @IsOptional()
+  level?: string;
 }
 
 export class DeviceResponse {
