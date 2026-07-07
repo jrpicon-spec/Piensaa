@@ -27,7 +27,7 @@ interface SocketContextValue {
   socket: Socket | null;
   connected: boolean;
   deviceStatus: DeviceStatusPayload | null;
-  startTest: (payload: { patientId: string; level?: string }) => void;
+  startTest: (payload: { patientId: string; level?: number }) => void;
   emit: Socket['emit'] | null;
 }
 

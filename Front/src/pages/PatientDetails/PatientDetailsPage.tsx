@@ -16,6 +16,13 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
 import { LineChartCard } from '@/components/charts/LineChartCard';
@@ -24,8 +31,8 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { AlertsCard } from '@/components/alerts/AlertsCard';
 import { patientsService, type Patient } from '@/services/patients.service';
 import { measurementsService, type Measurement } from '@/services/measurements.service';
-import { usersService, type Caregiver } from '@/services/users.service';
 import { useSocket } from '@/contexts/SocketContext';
+import { useToast } from '@/contexts/ToastContext';
 import {
   avg,
   calculateAge,
@@ -40,25 +47,22 @@ import {
 export function PatientDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { socket, startTest } = useSocket();
+  const { socket, startTest, deviceStatus } = useSocket();
+  const { success, info, warning } = useToast();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [records, setRecords] = useState<Measurement[]>([]);
-  const [caregiver, setCaregiver] = useState<Caregiver | null>(null);
   const [loading, setLoading] = useState(true);
+  const [testLevel, setTestLevel] = useState<'1' | '2' | '3' | '4'>('1');
+  const [isTestRunning, setIsTestRunning] = useState(false);
 
   async function refreshData(patientId: string) {
-    const [patientData, measurementsData, caregiversData] = await Promise.all([
+    const [patientData, measurementsData] = await Promise.all([
       patientsService.findOne(patientId).catch(() => null),
       measurementsService.findAll({ limit: 100 }).catch(() => ({ items: [] })),
-      usersService.findAll().catch(() => []),
     ]);
     setPatient(patientData);
     if (patientData) {
       setRecords(measurementsData.items.filter((m) => m.patientId === patientId));
-      if (patientData.caregiverId) {
-        const cg = caregiversData.find((c) => c.id === patientData.caregiverId);
-        setCaregiver(cg ?? null);
-      }
     }
   }
   const patientRecords = useMemo(
@@ -101,7 +105,12 @@ export function PatientDetailsPage() {
 
     const onTestFinished = (payload: { measurement?: { patientId?: string } }) => {
       if (payload.measurement?.patientId === id) {
+        setIsTestRunning(false);
         void refreshData(id);
+        success(
+          'Prueba completada',
+          'La medición se registró y el historial se actualizó automáticamente.',
+        );
       }
     };
 
@@ -109,7 +118,48 @@ export function PatientDetailsPage() {
     return () => {
       socket.off('testFinished', onTestFinished);
     };
-  }, [socket, id]);
+  }, [socket, id, success]);
+
+  useEffect(() => {
+    if (deviceStatus?.connected) {
+      return;
+    }
+    setIsTestRunning(false);
+  }, [deviceStatus]);
+
+  const levelLabelMap: Record<'1' | '2' | '3' | '4', string> = {
+    1: 'Fácil',
+    2: 'Medio',
+    3: 'Difícil',
+    4: 'Frenético',
+  };
+
+  const levelValueMap: Record<'1' | '2' | '3' | '4', number> = {
+    1: 1,
+    2: 2,
+    3: 3,
+    4: 4,
+  };
+
+  const isEsp32Connected = deviceStatus?.connected ?? false;
+
+  const handleStartTest = () => {
+    if (!patient) return;
+    if (!isEsp32Connected) {
+      warning('ESP32 desconectado', 'No hay ningún dispositivo ESP32 conectado.');
+      return;
+    }
+
+    setIsTestRunning(true);
+    info(
+      'Prueba iniciada',
+      'Esperando resultado del dispositivo...',
+    );
+    startTest({
+      patientId: patient.id,
+      level: levelValueMap[testLevel],
+    });
+  };
 
   if (loading) return <div className="p-6">Cargando...</div>;
 
@@ -141,6 +191,78 @@ export function PatientDetailsPage() {
         <ArrowLeft className="h-4 w-4" />
         Volver
       </Button>
+
+      {/* Prueba de Tiempo de Reacción */}
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08 }}
+        className="rounded-2xl border border-border bg-white p-5 shadow-card"
+      >
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-foreground">Prueba de Tiempo de Reacción</h2>
+              <Badge variant={isEsp32Connected ? 'success' : 'danger'}>
+                <span className={cn('h-1.5 w-1.5 rounded-full mr-1', isEsp32Connected ? 'bg-emerald-500' : 'bg-rose-500')} />
+                {isEsp32Connected ? 'ESP32 conectado' : 'ESP32 desconectado'}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Configure el nivel de dificultad e inicie una nueva prueba para este paciente.
+            </p>
+            {!isEsp32Connected && (
+              <p className="text-sm font-medium text-rose-600">
+                No hay ningún dispositivo ESP32 conectado.
+              </p>
+            )}
+            {isTestRunning && (
+              <p className="text-sm font-medium text-sky-700">
+                Esperando resultado del dispositivo...
+              </p>
+            )}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-[220px_1fr] sm:items-end lg:w-[520px]">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Nivel</label>
+              <Select value={testLevel} onValueChange={(value) => setTestLevel(value as '1' | '2' | '3' | '4')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione nivel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Fácil</SelectItem>
+                  <SelectItem value="2">Medio</SelectItem>
+                  <SelectItem value="3">Difícil</SelectItem>
+                  <SelectItem value="4">Frenético</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Nivel seleccionado: {levelLabelMap[testLevel]}
+              </p>
+            </div>
+
+            <Button
+              size="lg"
+              className="w-full"
+              disabled={!isEsp32Connected || isTestRunning}
+              onClick={handleStartTest}
+            >
+              {isTestRunning ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Iniciando...
+                </>
+              ) : (
+                <>
+                  <HeartPulse className="h-4 w-4" />
+                  Iniciar prueba
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </motion.section>
 
       {/* Hero card */}
       <motion.div
@@ -174,12 +296,7 @@ export function PatientDetailsPage() {
                 <Pencil className="h-4 w-4" />
                 Editar
               </Button>
-              <Button
-                onClick={() => {
-                  if (!patient) return;
-                  startTest({ patientId: patient.id });
-                }}
-              >
+              <Button variant="outline" onClick={handleStartTest}>
                 <HeartPulse className="h-4 w-4" />
                 Iniciar prueba
               </Button>
@@ -205,7 +322,7 @@ export function PatientDetailsPage() {
               {
                 icon: Stethoscope,
                 label: 'Cuidador asignado',
-                value: caregiver?.name ?? 'Sin asignar',
+                value: patient.caregiverId ? 'Asignado' : 'Sin asignar',
               },
               { icon: Calendar, label: 'Última evaluación', value: patient.lastEvaluation ? relativeTime(patient.lastEvaluation) : '—' },
             ].map(({ icon: Icon, label, value }) => (
