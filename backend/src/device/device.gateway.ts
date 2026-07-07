@@ -219,9 +219,18 @@ export class DeviceGateway
 
   private resolveSocketRole(client: Socket): SocketRole {
     const rawRole = String(client.handshake.auth?.clientType ?? '').toLowerCase();
+    const token = client.handshake.auth?.token;
+
     if (rawRole === 'esp32') {
       return 'esp32';
     }
+
+    // Frontend must authenticate with JWT. If no token exists, treat the socket
+    // as device traffic so the ESP32 can connect without inventing extra auth.
+    if (typeof token !== 'string' || token.length === 0) {
+      return 'esp32';
+    }
+
     return 'frontend';
   }
 

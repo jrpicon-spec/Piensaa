@@ -1,5 +1,5 @@
 #include <WiFi.h>
-#include <SocketIOclient.h>
+#include <WebSocketsClient.h>
 
 // =========================
 // Configuration
@@ -10,13 +10,14 @@
 static const bool SIMULATION_MODE = true;
 
 // WiFi credentials
-static const char* WIFI_SSID = "ASTRONET_MARIA ALVARADO";
-static const char* WIFI_PASSWORD = "0101086536";
+static const char* WIFI_SSID = "Red_Software";
+static const char* WIFI_PASSWORD = "S0ft2026t$c.";
 
 // Railway / backend public URL, without trailing slash.
 // Example: "https://your-backend.up.railway.app"
-static const char* SOCKET_HOST = "https://piensaa-production.up.railway.app";
+static const char* SOCKET_HOST = "piensaa-production.up.railway.app";
 static const uint16_t SOCKET_PORT = 443;
+static const char* SOCKET_ENDPOINT = "/socket.io/?EIO=4&transport=websocket";
 static const char* SOCKET_NAMESPACE = "/device";
 
 // Game hardware pins
@@ -42,7 +43,7 @@ struct TestContext {
   unsigned long reactionTimeMs = 0;
 };
 
-SocketIOclient socketIO;
+WebSocketsClient socketIO;
 TestContext currentTest;
 
 bool wifiReady = false;
@@ -62,7 +63,8 @@ void waitForTest();
 void runRealGame();
 void runSimulation();
 void sendResult();
-void handleSocketEvent(socketIOmessageType_t type, uint8_t* payload, size_t length);
+void handleWebSocketEvent(WStype_t type, uint8_t* payload, size_t length);
+void sendSocketPacket(String packet);
 void applyLevel(int level);
 void resetGameOutputs();
 void showLed(uint8_t ledIndex, bool on);
@@ -212,15 +214,14 @@ void connectWifi() {
 void connectSocket() {
   if (!wifiReady) return;
 
-  String host = String(SOCKET_HOST);
-  host.replace("https://", "");
-  host.replace("http://", "");
+  if (socketIO.isConnected()) {
+    return;
+  }
 
-  String url = String(SOCKET_NAMESPACE);
-  socketIO.beginSSL(host.c_str(), SOCKET_PORT, url.c_str());
-  socketIO.setExtraHeaders("Origin: *\r\n");
-  socketIO.onEvent(handleSocketEvent);
+  socketIO.beginSocketIOSSL(SOCKET_HOST, SOCKET_PORT, "/socket.io/?EIO=4");
+  socketIO.onEvent(handleWebSocketEvent);
   socketIO.setReconnectInterval(5000);
+  socketIO.enableHeartbeat(15000, 3000, 2);
 }
 
 void reconnect() {
@@ -241,33 +242,53 @@ void reconnect() {
 }
 
 // =========================
-// Socket.IO handling
+// WebSocket + Socket.IO handling
 // =========================
 
-void handleSocketEvent(socketIOmessageType_t type, uint8_t* payload, size_t length) {
+void handleWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
   switch (type) {
-   case sIOtype_CONNECT:{
-    socketReady = true;
-    Serial.println("Socket connected");
-
-    String message = "[\"deviceConnected\",{}]";
-    socketIO.sendEVENT(message);
-
-    break;
-   }
-
-    case sIOtype_DISCONNECT:
+    case WStype_DISCONNECTED:
       socketReady = false;
       Serial.println("Socket disconnected");
       break;
 
-    case sIOtype_EVENT: {
+    case WStype_ERROR:
+      socketReady = false;
+      Serial.println("Socket error");
+      break;
+
+    case WStype_CONNECTED: {
+      socketReady = true;
+      Serial.println("Socket connected");
+      // Socket.IO namespace handshake for /device.
+      sendSocketPacket(String("40") + SOCKET_NAMESPACE + ",");
+      break;
+    }
+
+    case WStype_TEXT: {
       String event = trimJsonPayload(payload, length);
-      Serial.print("Socket event: ");
+      Serial.print("Socket message: ");
       Serial.println(event);
 
-      // Expected payload shape from backend:
-      // ["startTest",{"patientId":"...","level":1,"serverTime":"..."}]
+      if (event.startsWith("0")) {
+        Serial.println("Engine.IO open packet received");
+        break;
+      }
+
+      if (event.startsWith(String("40") + SOCKET_NAMESPACE)) {
+        Serial.println("Socket.IO namespace /device connected");
+        // Namespace connected, notify backend about ESP32 presence.
+        sendSocketPacket(String("42") + SOCKET_NAMESPACE + ",[\"deviceConnected\"]");
+        break;
+      }
+
+      if (event == "40") {
+        Serial.println("Socket.IO root namespace connected");
+        break;
+      }
+
+      // Expected payload:
+      // 42/device,["startTest",{"patientId":"...","level":1}]
       if (event.indexOf("\"startTest\"") >= 0) {
         String patientId = extractJsonString(event, "patientId");
         int level = extractJsonInt(event, "level", 1);
@@ -293,6 +314,10 @@ void handleSocketEvent(socketIOmessageType_t type, uint8_t* payload, size_t leng
     default:
       break;
   }
+}
+
+void sendSocketPacket(String packet) {
+  socketIO.sendTXT(packet);
 }
 
 // =========================
@@ -377,21 +402,22 @@ void sendResult() {
 
   unsigned long timestamp = millis();
 
-  String message = "[\"testFinished\",{";
-  message += "\"patientId\":\"" + currentTest.patientId + "\",";
-  message += "\"reactionTime\":" + String(currentTest.reactionTimeMs) + ",";
-  message += "\"selectedLevel\":" + String(currentTest.selectedLevel) + ",";
-  message += "\"success\":" + String(currentTest.success ? "true" : "false") + ",";
-  message += "\"correctButton\":" + String(currentTest.correctButton) + ",";
-  message += "\"pressedButton\":" + String(currentTest.pressedButton) + ",";
-  message += "\"timeout\":" + String(currentTest.timeout ? "true" : "false") + ",";
-  message += "\"timestamp\":" + String(timestamp);
-  message += "}]";
+  String payload = "{";
+  payload += "\"patientId\":\"" + currentTest.patientId + "\",";
+  payload += "\"reactionTime\":" + String(currentTest.reactionTimeMs) + ",";
+  payload += "\"selectedLevel\":" + String(currentTest.selectedLevel) + ",";
+  payload += "\"success\":" + String(currentTest.success ? "true" : "false") + ",";
+  payload += "\"correctButton\":" + String(currentTest.correctButton) + ",";
+  payload += "\"pressedButton\":" + String(currentTest.pressedButton) + ",";
+  payload += "\"timeout\":" + String(currentTest.timeout ? "true" : "false") + ",";
+  payload += "\"timestamp\":" + String(timestamp);
+  payload += "}";
 
-  socketIO.sendEVENT(message);
+  String packet = String("42") + SOCKET_NAMESPACE + ",[\"testFinished\"," + payload + "]";
+  sendSocketPacket(packet);
 
   Serial.print("Result sent: ");
-  Serial.println(message);
+  Serial.println(packet);
 
   currentTest.active = false;
   currentTest.startedAt = 0;
