@@ -30,6 +30,7 @@ export function ReportsPage() {
   const [status, setStatus] = useState<'all' | PatientStatus>('all');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const invalidDateRange = Boolean(fromDate && toDate && fromDate > toDate);
   const [records, setRecords] = useState<Measurement[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +42,7 @@ export function ReportsPage() {
       try {
         setLoading(true);
         const [measurementsData, patientsData] = await Promise.all([
-          measurementsService.findAll({ limit: 500 }),
+          measurementsService.findAllPaginated(),
           patientsService.findAll(),
         ]);
         setRecords(measurementsData.items);
@@ -61,11 +62,11 @@ export function ReportsPage() {
       const matchesSearch = search === '' || r.patientId.toLowerCase().includes(search.toLowerCase());
       const matchesPatient = patientId === 'all' || r.patientId === patientId;
       const matchesStatus = status === 'all' || r.status === status;
-      const matchesFrom = !fromDate || r.date >= fromDate;
-      const matchesTo = !toDate || r.date <= toDate;
+      const matchesFrom = !invalidDateRange && (!fromDate || r.date >= fromDate);
+      const matchesTo = !invalidDateRange && (!toDate || r.date <= toDate);
       return matchesSearch && matchesPatient && matchesStatus && matchesFrom && matchesTo;
     });
-  }, [records, search, patientId, status, fromDate, toDate]);
+  }, [records, search, patientId, status, fromDate, toDate, invalidDateRange]);
 
   const stats = useMemo(() => {
     const times = filtered.map((r) => r.reactionMs);
@@ -185,6 +186,11 @@ export function ReportsPage() {
               <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="text-xs" />
               <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="text-xs" />
             </div>
+            {invalidDateRange && (
+              <p className="text-xs text-rose-600">
+                La fecha hasta debe ser igual o posterior a la fecha desde.
+              </p>
+            )}
           </div>
         </div>
       </div>

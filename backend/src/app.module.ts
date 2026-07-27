@@ -14,6 +14,9 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import jwtConfig from './config/jwt.config';
 import supabaseConfig from './config/supabase.config';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { DeviceApiKeyGuard } from './common/guards/device-api-key.guard';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -21,6 +24,12 @@ import supabaseConfig from './config/supabase.config';
       isGlobal: true,
       load: [jwtConfig, supabaseConfig],
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000,
+        limit: 100,
+      },
+    ]),
     SupabaseModule,
     AuthModule,
     UsersModule,
@@ -28,12 +37,14 @@ import supabaseConfig from './config/supabase.config';
     MeasurementsModule,
     DeviceModule,
     DashboardModule,
+    SettingsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
+    DeviceApiKeyGuard,
   ],
 })
 export class AppModule {}

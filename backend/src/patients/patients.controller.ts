@@ -42,7 +42,10 @@ export class PatientsController {
   @Post()
   @Roles(UserRole.ADMIN, UserRole.CUIDADOR)
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() dto: CreatePatientDto, @CurrentUser() user: AuthenticatedUser) {
+  create(
+    @Body() dto: CreatePatientDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
     return this.patientsService.create(dto, user);
   }
 

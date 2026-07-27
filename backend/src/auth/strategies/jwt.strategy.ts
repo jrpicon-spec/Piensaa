@@ -20,7 +20,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(payload: JwtPayload): AuthenticatedUser {
-    if (!payload?.sub || !payload?.email) {
+    if (
+      !payload?.sub ||
+      !payload?.email ||
+      !payload.authId ||
+      ![UserRole.ADMIN, UserRole.CUIDADOR].includes(payload.rol)
+    ) {
       throw new UnauthorizedException('Token inválido');
     }
 
@@ -28,7 +33,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       id: payload.sub,
       email: payload.email,
       nombre: payload.nombre,
-      rol: payload.rol as UserRole,
+      rol: payload.rol,
       authId: payload.authId,
     };
   }

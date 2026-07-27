@@ -11,16 +11,14 @@ import {
   Lock,
   Mail,
   ShieldCheck,
-  Stethoscope,
   User,
   Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Label, FormHint } from '@/components/ui/Label';
 import { authService, type RegisterDto } from '@/services/auth.service';
-import { cn } from '@/utils';
+import { cn, sanitizePersonName, validateEmail, validatePersonName } from '@/utils';
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -29,7 +27,6 @@ export function RegisterPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    rol: 'admin' as 'admin' | 'cuidador',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -40,39 +37,32 @@ export function RegisterPage() {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.nombre.trim()) {
-      newErrors.nombre = 'El nombre es obligatorio';
-    }
+    const nameError = validatePersonName(formData.nombre);
+    if (nameError) newErrors.nombre = nameError;
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'El correo electrónico es obligatorio';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Ingresa un correo electrónico válido';
-    }
+    const emailError = validateEmail(formData.email);
+    if (emailError) newErrors.email = emailError;
 
     if (!formData.password) {
       newErrors.password = 'La contraseña es obligatoria';
-    } else {
-      if (formData.password.length < 8) {
-        newErrors.password = 'La contraseña debe tener al menos 8 caracteres';
-      }
-      if (!/[A-Z]/.test(formData.password)) {
-        newErrors.password = 'La contraseña debe contener al menos una mayúscula';
-      }
-      if (!/[0-9]/.test(formData.password)) {
-        newErrors.password = 'La contraseña debe contener al menos un número';
-      }
-      if (!/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)) {
-        newErrors.password = 'La contraseña debe contener al menos un carácter especial';
-      }
+    } else if (!/\S/.test(formData.password)) {
+      newErrors.password = 'La contraseña no puede contener solo espacios';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'La contraseña debe tener al menos 8 caracteres';
+    } else if (formData.password.length > 128) {
+      newErrors.password = 'La contraseña no puede superar 128 caracteres';
+    } else if (!/[A-Z]/.test(formData.password)) {
+      newErrors.password = 'La contraseña debe contener al menos una mayúscula';
+    } else if (!/[0-9]/.test(formData.password)) {
+      newErrors.password = 'La contraseña debe contener al menos un número';
+    } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(formData.password)) {
+      newErrors.password = 'La contraseña debe contener al menos un carácter especial';
     }
 
-    if (formData.password !== formData.confirmPassword) {
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = 'No puede dejar este campo vacío.';
+    } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Las contraseñas no coinciden';
-    }
-
-    if (!['admin', 'cuidador'].includes(formData.rol)) {
-      newErrors.rol = 'Debe elegir un rol';
     }
 
     setErrors(newErrors);
@@ -95,7 +85,6 @@ export function RegisterPage() {
         nombre: formData.nombre.trim(),
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
-        rol: formData.rol,
       };
 
       const response = await authService.register(dto);
@@ -257,8 +246,10 @@ export function RegisterPage() {
                   id="nombre"
                   type="text"
                   required
+                  minLength={2}
+                  maxLength={120}
                   value={formData.nombre}
-                  onChange={(e) => handleChange('nombre', e.target.value)}
+                  onChange={(e) => handleChange('nombre', sanitizePersonName(e.target.value))}
                   placeholder="María García López"
                   className={cn('pl-9', errors.nombre && 'border-rose-300 focus:ring-rose-200')}
                   disabled={isSubmitting}
@@ -276,6 +267,7 @@ export function RegisterPage() {
                   id="email"
                   type="email"
                   required
+                  maxLength={254}
                   value={formData.email}
                   onChange={(e) => handleChange('email', e.target.value)}
                   placeholder="usuario@reaccionvital.com"
@@ -286,33 +278,9 @@ export function RegisterPage() {
               {errors.email && <FormHint className="text-rose-600">{errors.email}</FormHint>}
             </div>
 
-            {/* Rol */}
-            <div className="space-y-1.5">
-              <Label htmlFor="rol">Rol en la plataforma</Label>
-              <Select
-                value={formData.rol}
-                onValueChange={(value) => handleChange('rol', value)}
-                disabled={isSubmitting}
-              >
-                <SelectTrigger id="rol" className={cn(errors.rol && 'border-rose-300')}>
-                  <SelectValue placeholder="Selecciona un rol" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4 text-sky-600" />
-                      <span>Administrador</span>
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="cuidador">
-                    <div className="flex items-center gap-2">
-                      <Stethoscope className="h-4 w-4 text-emerald-600" />
-                      <span>Cuidador</span>
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              {errors.rol && <FormHint className="text-rose-600">{errors.rol}</FormHint>}
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              Las cuentas creadas mediante registro público tienen rol de cuidador.
+              Los administradores son creados por otro administrador.
             </div>
 
             {/* Contraseña */}
@@ -324,6 +292,8 @@ export function RegisterPage() {
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   required
+                  minLength={8}
+                  maxLength={128}
                   value={formData.password}
                   onChange={(e) => handleChange('password', e.target.value)}
                   placeholder="••••••••"
@@ -368,6 +338,8 @@ export function RegisterPage() {
                   id="confirmPassword"
                   type={showConfirmPassword ? 'text' : 'password'}
                   required
+                  minLength={8}
+                  maxLength={128}
                   value={formData.confirmPassword}
                   onChange={(e) => handleChange('confirmPassword', e.target.value)}
                   placeholder="••••••••"

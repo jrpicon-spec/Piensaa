@@ -1,8 +1,7 @@
 import { getStoredToken } from './auth-storage';
 import { requestJson } from './api-client';
 
-// Frontend Caregiver type (matches @/types)
-export interface Caregiver {
+export interface ManagedUser {
   id: string;
   name: string;
   email: string;
@@ -10,10 +9,12 @@ export interface Caregiver {
   status: 'activo' | 'inactivo';
   role: 'admin' | 'cuidador';
   patientsCount?: number;
-  patientIds?: string[];
   avatar?: string;
   createdAt?: string;
 }
+
+// Alias compatible con los formularios de pacientes existentes.
+export type Caregiver = ManagedUser;
 
 // Backend response
 interface BackendUser {
@@ -23,7 +24,8 @@ interface BackendUser {
   telefono?: string;
   rol: 'admin' | 'cuidador';
   estado?: string | null;
-  created_at?: string;
+  createdAt?: string;
+  patientsCount: number;
 }
 
 interface PaginatedResponse {
@@ -34,14 +36,16 @@ interface PaginatedResponse {
 }
 
 // Map backend user to frontend caregiver
-function mapBackendUser(u: BackendUser): Caregiver {
+function mapBackendUser(u: BackendUser): ManagedUser {
   return {
     id: u.id,
     name: u.nombre,
     email: u.email,
     phone: u.telefono,
-    status: (u.estado as Caregiver['status']) ?? 'inactivo',
+    status: (u.estado as ManagedUser['status']) ?? 'inactivo',
     role: u.rol,
+    createdAt: u.createdAt,
+    patientsCount: u.rol === 'cuidador' ? u.patientsCount : 0,
   };
 }
 
@@ -50,19 +54,23 @@ export interface CreateUserDto {
   email: string;
   password: string;
   nombre: string;
-  telefono?: string;
+  telefono: string;
+  estado: 'activo' | 'inactivo';
   rol: 'admin' | 'cuidador';
 }
 
 export interface UpdateUserDto {
   nombre?: string;
+  email?: string;
   telefono?: string;
   estado?: 'activo' | 'inactivo';
+  rol?: 'admin' | 'cuidador';
+  password?: string;
 }
 
 // Users/Caregivers API
 class UsersService {
-  async findAll(): Promise<Caregiver[]> {
+  async findAll(): Promise<ManagedUser[]> {
     const token = getStoredToken();
     const data = await requestJson<PaginatedResponse>('/users', {
       headers: {
@@ -73,7 +81,7 @@ class UsersService {
     return (data.items ?? []).map(mapBackendUser);
   }
 
-  async findOne(id: string): Promise<Caregiver> {
+  async findOne(id: string): Promise<ManagedUser> {
     const token = getStoredToken();
     const data = await requestJson<BackendUser>(`/users/${id}`, {
       headers: {
@@ -84,7 +92,7 @@ class UsersService {
     return mapBackendUser(data);
   }
 
-  async create(dto: CreateUserDto): Promise<Caregiver> {
+  async create(dto: CreateUserDto): Promise<ManagedUser> {
     const token = getStoredToken();
     const data = await requestJson<BackendUser>('/users', {
       method: 'POST',
@@ -97,7 +105,7 @@ class UsersService {
     return mapBackendUser(data);
   }
 
-  async update(id: string, dto: UpdateUserDto): Promise<Caregiver> {
+  async update(id: string, dto: UpdateUserDto): Promise<ManagedUser> {
     const token = getStoredToken();
     const data = await requestJson<BackendUser>(`/users/${id}`, {
       method: 'PATCH',

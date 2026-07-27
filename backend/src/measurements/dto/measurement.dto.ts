@@ -2,7 +2,6 @@ import { Type } from 'class-transformer';
 import {
   IsDateString,
   IsInt,
-  IsNotEmpty,
   IsOptional,
   IsUUID,
   Max,
@@ -14,9 +13,11 @@ export class CreateMeasurementDto {
   paciente_id!: string;
 
   @Type(() => Number)
-  @IsInt({ message: 'El tiempo de reacción debe ser un entero en milisegundos' })
-  @Min(50, { message: 'El tiempo mínimo permitido es 50 ms' })
-  @Max(5000, { message: 'El tiempo máximo permitido es 5000 ms' })
+  @IsInt({
+    message: 'El tiempo de reacción debe ser un entero en milisegundos',
+  })
+  @Min(1, { message: 'El tiempo de reacción debe ser mayor que 0' })
+  @Max(60000, { message: 'El tiempo máximo permitido es 60000 ms' })
   tiempo_reaccion!: number;
 
   @IsOptional()
@@ -28,8 +29,8 @@ export class UpdateMeasurementDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(50)
-  @Max(5000)
+  @Min(1, { message: 'El tiempo de reacción debe ser mayor que 0' })
+  @Max(60000, { message: 'El tiempo máximo permitido es 60000 ms' })
   tiempo_reaccion?: number;
 
   @IsOptional()

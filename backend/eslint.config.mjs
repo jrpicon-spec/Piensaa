@@ -29,7 +29,13 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
-      "prettier/prettier": ["error", { endOfLine: "auto" }],
+      // Supabase is intentionally used without generated database types in this
+      // project, so its fluent responses surface as `any` at this boundary.
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/no-base-to-string': 'off',
+      '@typescript-eslint/no-unsafe-enum-comparison': 'off',
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },
 );

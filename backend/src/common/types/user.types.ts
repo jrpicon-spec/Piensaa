@@ -23,6 +23,7 @@ export interface SupabaseProfile {
   nombre: string;
   email: string;
   rol: UserRole;
+  estado?: 'activo' | 'inactivo' | null;
 }
 
 export interface SupabasePatient {

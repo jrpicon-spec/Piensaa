@@ -20,7 +20,18 @@ import {
   SelectValue,
 } from '@/components/ui/Select';
 import type { Gender, Patient, PatientStatus } from '@/types';
-import { calculateAge, generateAvatarUrl, generateId } from '@/utils';
+import {
+  calculateAge,
+  generateAvatarUrl,
+  generateId,
+  getBirthDateLimits,
+  normalizeText,
+  sanitizePersonName,
+  sanitizePhone,
+  validateBirthDate,
+  validatePersonName,
+  validatePhone,
+} from '@/utils';
 import { useToast } from '@/contexts/ToastContext';
 
 export interface PatientFormValues {
@@ -60,6 +71,7 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
   const [values, setValues] = useState<PatientFormValues>(defaultValues);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { success } = useToast();
+  const birthDateLimits = getBirthDateLimits();
 
   const isEdit = !!patient;
 
@@ -88,11 +100,35 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
-    if (!values.fullName.trim()) newErrors.fullName = 'El nombre es obligatorio';
-    if (!values.birthDate) newErrors.birthDate = 'La fecha de nacimiento es obligatoria';
-    if (!values.phone.trim()) newErrors.phone = 'El teléfono es obligatorio';
-    if (!values.address.trim()) newErrors.address = 'La dirección es obligatoria';
-    if (!values.guardianName.trim()) newErrors.guardianName = 'El familiar responsable es obligatorio';
+    const normalizedName = normalizeText(values.fullName);
+    const [firstName = '', ...lastNameParts] = normalizedName.split(' ');
+    const lastName = lastNameParts.join(' ');
+    const firstNameError = validatePersonName(firstName, 'nombre', 60);
+    const lastNameError = validatePersonName(lastName, 'apellido', 60);
+
+    if (firstNameError || lastNameError) {
+      newErrors.fullName = !lastName
+        ? 'Debe ingresar nombre y apellido.'
+        : firstNameError || lastNameError || 'Solo se permiten letras.';
+    }
+    const birthDateError = validateBirthDate(values.birthDate);
+    if (birthDateError) newErrors.birthDate = birthDateError;
+    if (!['masculino', 'femenino', 'otro'].includes(values.gender)) {
+      newErrors.gender = 'Debe seleccionar un sexo válido.';
+    }
+    const phoneError = validatePhone(values.phone);
+    if (phoneError) newErrors.phone = phoneError;
+    const address = values.address.trim();
+    if (!address) newErrors.address = 'No puede dejar este campo vacío.';
+    else if (address.length < 2) newErrors.address = 'La dirección debe tener al menos 2 caracteres.';
+    else if (address.length > 255) newErrors.address = 'La dirección no puede superar 255 caracteres.';
+    const guardianNameError = validatePersonName(values.guardianName, 'nombre', 160);
+    if (guardianNameError) newErrors.guardianName = guardianNameError;
+    const guardianPhoneError = validatePhone(values.guardianPhone, false);
+    if (guardianPhoneError) newErrors.guardianPhone = guardianPhoneError;
+    if (values.notes.trim().length > 1000) {
+      newErrors.notes = 'Las observaciones no pueden superar 1000 caracteres.';
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -101,15 +137,15 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
 
     const result: Patient = {
       id: patient?.id ?? `p-${generateId()}`,
-      fullName: values.fullName,
+      fullName: normalizedName,
       age: calculateAge(values.birthDate),
       gender: values.gender,
       birthDate: values.birthDate,
-      phone: values.phone,
-      address: values.address,
-      guardianName: values.guardianName,
-      guardianPhone: values.guardianPhone || undefined,
-      notes: values.notes || undefined,
+      phone: values.phone.trim(),
+      address,
+      guardianName: normalizeText(values.guardianName),
+      guardianPhone: values.guardianPhone.trim() || undefined,
+      notes: values.notes.trim() || undefined,
       photo: patient?.photo ?? generateAvatarUrl(values.fullName),
       status: values.status,
       caregiverId: values.caregiverId || undefined,
@@ -139,8 +175,11 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
                 <Label htmlFor="fullName">Nombre completo *</Label>
                 <Input
                   id="fullName"
+                  required
+                  minLength={5}
+                  maxLength={121}
                   value={values.fullName}
-                  onChange={(e) => setValues({ ...values, fullName: e.target.value })}
+                  onChange={(e) => setValues({ ...values, fullName: sanitizePersonName(e.target.value) })}
                   placeholder="Ej. María González"
                 />
                 {errors.fullName && <p className="text-xs text-rose-600">{errors.fullName}</p>}
@@ -151,6 +190,9 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
                 <Input
                   id="birthDate"
                   type="date"
+                  required
+                  min={birthDateLimits.min}
+                  max={birthDateLimits.max}
                   value={values.birthDate}
                   onChange={(e) => setValues({ ...values, birthDate: e.target.value })}
                 />
@@ -175,14 +217,18 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
                     <SelectItem value="otro">Otro</SelectItem>
                   </SelectContent>
                 </Select>
+                {errors.gender && <p className="text-xs text-rose-600">{errors.gender}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="phone">Teléfono de contacto *</Label>
                 <Input
                   id="phone"
+                  required
+                  inputMode="tel"
+                  maxLength={32}
                   value={values.phone}
-                  onChange={(e) => setValues({ ...values, phone: e.target.value })}
+                  onChange={(e) => setValues({ ...values, phone: sanitizePhone(e.target.value) })}
                   placeholder="+51 999 000 000"
                 />
                 {errors.phone && <p className="text-xs text-rose-600">{errors.phone}</p>}
@@ -209,6 +255,9 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
                 <Label htmlFor="address">Dirección *</Label>
                 <Input
                   id="address"
+                  required
+                  minLength={2}
+                  maxLength={255}
                   value={values.address}
                   onChange={(e) => setValues({ ...values, address: e.target.value })}
                   placeholder="Av. Los Olivos 123, Lima"
@@ -220,8 +269,11 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
                 <Label htmlFor="guardianName">Familiar responsable *</Label>
                 <Input
                   id="guardianName"
+                  required
+                  minLength={2}
+                  maxLength={160}
                   value={values.guardianName}
-                  onChange={(e) => setValues({ ...values, guardianName: e.target.value })}
+                  onChange={(e) => setValues({ ...values, guardianName: sanitizePersonName(e.target.value) })}
                   placeholder="Nombre completo"
                 />
                 {errors.guardianName && <p className="text-xs text-rose-600">{errors.guardianName}</p>}
@@ -231,21 +283,26 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
                 <Label htmlFor="guardianPhone">Teléfono del familiar</Label>
                 <Input
                   id="guardianPhone"
+                  inputMode="tel"
+                  maxLength={32}
                   value={values.guardianPhone}
-                  onChange={(e) => setValues({ ...values, guardianPhone: e.target.value })}
+                  onChange={(e) => setValues({ ...values, guardianPhone: sanitizePhone(e.target.value) })}
                   placeholder="+51 999 000 000"
                 />
+                {errors.guardianPhone && <p className="text-xs text-rose-600">{errors.guardianPhone}</p>}
               </div>
 
               <div className="space-y-1.5 sm:col-span-2">
                 <Label htmlFor="notes">Observaciones</Label>
                 <Textarea
                   id="notes"
+                  maxLength={1000}
                   value={values.notes}
                   onChange={(e) => setValues({ ...values, notes: e.target.value })}
                   placeholder="Información médica relevante, alergias, medicación, etc."
                   rows={3}
                 />
+                {errors.notes && <p className="text-xs text-rose-600">{errors.notes}</p>}
               </div>
             </div>
           </DialogScrollArea>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Filter, Plus, Search, Users } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -30,12 +30,15 @@ import type { PatientStatus } from '@/types';
 
 export function PatientsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { success } = useToast();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | PatientStatus>('all');
-  const [caregiverFilter, setCaregiverFilter] = useState<'all' | string>('all');
+  const [caregiverFilter, setCaregiverFilter] = useState<'all' | string>(
+    searchParams.get('caregiver') ?? 'all',
+  );
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
@@ -79,8 +82,7 @@ export function PatientsPage() {
   };
 
   const handleSave = async (patient: Patient) => {
-    try {
-      if (editingPatient) {
+    if (editingPatient) {
         const [nombre, ...apellidoParts] = patient.fullName.split(' ');
         const apellido = apellidoParts.join(' ');
         const updated = await patientsService.update(patient.id, {
@@ -107,22 +109,15 @@ export function PatientsPage() {
           observaciones: patient.notes,
         });
         setPatients((current) => [created, ...current]);
-      }
-    } catch (err) {
-      throw err;
     }
   };
 
   const handleDelete = async () => {
     if (!patientToDelete) return;
-    try {
-      await patientsService.remove(patientToDelete.id);
-      setPatients((current) => current.filter((p) => p.id !== patientToDelete.id));
-      success('Paciente eliminado', `${patientToDelete.fullName} fue removido del sistema`);
-      setPatientToDelete(null);
-    } catch (err) {
-      throw err;
-    }
+    await patientsService.remove(patientToDelete.id);
+    setPatients((current) => current.filter((p) => p.id !== patientToDelete.id));
+    success('Paciente eliminado', `${patientToDelete.fullName} fue removido del sistema`);
+    setPatientToDelete(null);
   };
 
   if (loading) return <div className="p-6">Cargando...</div>;

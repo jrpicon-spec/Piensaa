@@ -12,7 +12,9 @@ export class SupabaseService implements OnModuleInit {
 
   onModuleInit(): void {
     const url = this.configService.get<string>('supabase.url');
-    const serviceKey = this.configService.get<string>('supabase.serviceRoleKey');
+    const serviceKey = this.configService.get<string>(
+      'supabase.serviceRoleKey',
+    );
     const anonKey =
       this.configService.get<string>('supabase.anonKey') ?? serviceKey;
 
@@ -31,7 +33,9 @@ export class SupabaseService implements OnModuleInit {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    this.logger.log(`Cliente Supabase inicializado contra ${this.maskUrl(url)}`);
+    this.logger.log(
+      `Cliente Supabase inicializado contra ${this.maskUrl(url)}`,
+    );
   }
 
   /**
@@ -53,7 +57,9 @@ export class SupabaseService implements OnModuleInit {
 
   private ensureClient(client: SupabaseClient, label: string): void {
     if (!client) {
-      throw new Error(`Supabase ${label} client no está inicializado. Verifica las variables de entorno.`);
+      throw new Error(
+        `Supabase ${label} client no está inicializado. Verifica las variables de entorno.`,
+      );
     }
   }
 

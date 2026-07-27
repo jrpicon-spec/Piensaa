@@ -47,10 +47,16 @@ export class DashboardService {
       );
     }
 
-    const { data: pacientes, error: pacientesError, count: pacientesTotal } = await pacientesQuery;
+    const {
+      data: pacientes,
+      error: pacientesError,
+      count: pacientesTotal,
+    } = await pacientesQuery;
 
     if (isDev) {
-      this.logger.debug(`GET dashboard/stats -> pacientes data=${JSON.stringify(pacientes)}`);
+      this.logger.debug(
+        `GET dashboard/stats -> pacientes data=${JSON.stringify(pacientes)}`,
+      );
       this.logger.debug(
         `GET dashboard/stats -> pacientes error=${pacientesError ? JSON.stringify(pacientesError) : 'null'} count=${pacientesTotal ?? 'null'}`,
       );
@@ -75,7 +81,8 @@ export class DashboardService {
     }>;
 
     const pacientes_por_estado = {
-      normal: pacientesList.filter((p) => (p.estado ?? 'normal') === 'normal').length,
+      normal: pacientesList.filter((p) => (p.estado ?? 'normal') === 'normal')
+        .length,
       atencion: pacientesList.filter((p) => p.estado === 'atencion').length,
       riesgo: pacientesList.filter((p) => p.estado === 'riesgo').length,
     };
@@ -104,7 +111,9 @@ export class DashboardService {
 
     if (pacientesIds.length === 0) {
       if (isDev) {
-        this.logger.debug('GET dashboard/stats -> no patients, returning zeroed stats');
+        this.logger.debug(
+          'GET dashboard/stats -> no patients, returning zeroed stats',
+        );
       }
       return {
         total_pacientes: pacientesTotal ?? 0,
@@ -127,7 +136,9 @@ export class DashboardService {
     const { data: mediciones, error: medicionesError } = await medicionesQuery;
 
     if (isDev) {
-      this.logger.debug(`GET dashboard/stats -> mediciones data=${JSON.stringify(mediciones)}`);
+      this.logger.debug(
+        `GET dashboard/stats -> mediciones data=${JSON.stringify(mediciones)}`,
+      );
       this.logger.debug(
         `GET dashboard/stats -> mediciones error=${medicionesError ? JSON.stringify(medicionesError) : 'null'}`,
       );
@@ -180,7 +191,9 @@ export class DashboardService {
     };
 
     if (isDev) {
-      this.logger.debug(`GET dashboard/stats -> response=${JSON.stringify(response)}`);
+      this.logger.debug(
+        `GET dashboard/stats -> response=${JSON.stringify(response)}`,
+      );
     }
 
     return response;

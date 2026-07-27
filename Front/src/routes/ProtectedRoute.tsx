@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import type { UserRole } from '@/types';
+import { getDefaultRoute } from '@/services/auth-routing';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -27,7 +28,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={getDefaultRoute(user.role)} replace />;
   }
 
   return <>{children}</>;

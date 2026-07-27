@@ -1,10 +1,22 @@
-import { Type } from 'class-transformer';
-import { IsEnum, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { UserRole } from '../../common/enums/user-role.enum';
+import { trimOptionalString } from '../../common/validation/validation.utils';
 
 export class FilterUserDto {
   @IsOptional()
+  @Transform(trimOptionalString)
   @IsString()
+  @MaxLength(100)
   search?: string;
 
   @IsOptional()
@@ -25,7 +37,7 @@ export class FilterUserDto {
   limit?: number = 20;
 
   @IsOptional()
-  @IsString()
+  @IsIn(['nombre', 'email', 'rol', 'created_at'])
   orderBy?: 'nombre' | 'email' | 'rol' | 'created_at';
 
   @IsOptional()

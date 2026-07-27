@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -6,7 +7,9 @@ import {
   HttpStatus,
   Post,
   Put,
+  UseGuards,
 } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { DeviceService } from './device.service';
 import {
   DeviceResultDto,
@@ -16,6 +19,7 @@ import {
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../common/enums/user-role.enum';
 import { Public } from '../common/decorators/public.decorator';
+import { DeviceApiKeyGuard } from '../common/guards/device-api-key.guard';
 
 @Controller('device')
 export class DeviceController {
@@ -58,12 +62,16 @@ export class DeviceController {
    * Envía el tiempo medido y el backend lo asocia al paciente seleccionado.
    */
   @Public()
+  @UseGuards(ThrottlerGuard, DeviceApiKeyGuard)
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
   @Post('result')
   @HttpCode(HttpStatus.CREATED)
   receiveResult(@Body() body: DeviceResultDto) {
     const value = body.reactionTime ?? body.tiempo_reaccion;
     if (typeof value !== 'number' || Number.isNaN(value)) {
-      throw new Error('Se requiere reactionTime (número) en el cuerpo');
+      throw new BadRequestException(
+        'Se requiere reactionTime (número) en el cuerpo',
+      );
     }
     return this.deviceService.receiveResult(value);
   }

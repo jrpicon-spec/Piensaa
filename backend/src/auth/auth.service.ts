@@ -8,9 +8,18 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { StringValue } from 'ms';
 import { SupabaseService } from '../supabase/supabase.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
+import {
+  ChangePasswordDto,
+  LoginDto,
+  RegisterDto,
+  UpdateOwnProfileDto,
+} from './dto/auth.dto';
 import { UserRole } from '../common/enums/user-role.enum';
-import { JwtPayload, SupabaseProfile } from '../common/types/user.types';
+import {
+  AuthenticatedUser,
+  JwtPayload,
+  SupabaseProfile,
+} from '../common/types/user.types';
 
 export interface AuthSuccess {
   accessToken: string;
@@ -45,12 +54,14 @@ export class AuthService {
 
     if (error || !data?.user) {
       throw new UnauthorizedException(
-        error?.message ?? 'Credenciales inválidas. Verifica tu correo y contraseña.',
+        error?.message ??
+          'Credenciales inválidas. Verifica tu correo y contraseña.',
       );
     }
 
     const userEmail = data.user.email ?? dto.email;
     const profile = await this.fetchProfile(admin, data.user.id, userEmail);
+    this.assertActiveKnownRole(profile);
     return this.buildAuthResponse(profile, data.user.id);
   }
 
@@ -112,7 +123,7 @@ export class AuthService {
         .update({
           nombre: dto.nombre,
           email: dto.email,
-          rol: dto.rol,
+          rol: UserRole.CUIDADOR,
         })
         .eq('id', authUserId);
 
@@ -131,7 +142,7 @@ export class AuthService {
         id: authUserId,
         nombre: dto.nombre,
         email: dto.email,
-        rol: dto.rol,
+        rol: UserRole.CUIDADOR,
       });
 
       if (profileError) {
@@ -156,7 +167,7 @@ export class AuthService {
             .update({
               nombre: dto.nombre,
               email: dto.email,
-              rol: dto.rol,
+              rol: UserRole.CUIDADOR,
             })
             .eq('id', authUserId);
 
@@ -198,6 +209,71 @@ export class AuthService {
     };
   }
 
+  async updateOwnProfile(
+    user: AuthenticatedUser,
+    dto: UpdateOwnProfileDto,
+  ): Promise<
+    AuthSuccess & { user: AuthSuccess['user'] & { telefono?: string } }
+  > {
+    const admin = this.supabaseService.getAdminClient();
+    const updates: Record<string, unknown> = {};
+    if (dto.nombre !== undefined) updates['nombre'] = dto.nombre;
+    if (dto.email !== undefined) updates['email'] = dto.email;
+    if (dto.telefono !== undefined) updates['telefono'] = dto.telefono;
+
+    if (dto.email !== undefined && dto.email !== user.email) {
+      const { error } = await admin.auth.admin.updateUserById(user.authId, {
+        email: dto.email,
+      });
+      if (error) throw new ConflictException(error.message);
+    }
+
+    if (Object.keys(updates).length > 0) {
+      const { error } = await admin
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id);
+      if (error) throw new ConflictException(error.message);
+    }
+
+    const profile = await this.fetchProfileByAuthId(admin, user.id);
+    const auth = this.buildAuthResponse(profile, user.authId);
+    return {
+      ...auth,
+      user: {
+        ...auth.user,
+        telefono:
+          typeof (profile as unknown as Record<string, unknown>)['telefono'] ===
+          'string'
+            ? String(
+                (profile as unknown as Record<string, unknown>)['telefono'],
+              )
+            : undefined,
+      },
+    };
+  }
+
+  async changePassword(
+    user: AuthenticatedUser,
+    dto: ChangePasswordDto,
+  ): Promise<{ changed: true }> {
+    const client = this.supabaseService.getClient();
+    const { error: verificationError } = await client.auth.signInWithPassword({
+      email: user.email,
+      password: dto.currentPassword,
+    });
+    if (verificationError) {
+      throw new UnauthorizedException('La contraseña actual es incorrecta');
+    }
+
+    const admin = this.supabaseService.getAdminClient();
+    const { error } = await admin.auth.admin.updateUserById(user.authId, {
+      password: dto.newPassword,
+    });
+    if (error) throw new ConflictException(error.message);
+    return { changed: true };
+  }
+
   private async fetchProfile(
     admin: ReturnType<SupabaseService['getAdminClient']>,
     authId: string,
@@ -233,7 +309,10 @@ export class AuthService {
     return (data ?? null) as unknown as SupabaseProfile;
   }
 
-  private buildAuthResponse(profile: SupabaseProfile, authId: string): AuthSuccess {
+  private buildAuthResponse(
+    profile: SupabaseProfile,
+    authId: string,
+  ): AuthSuccess {
     const payload: JwtPayload = {
       sub: profile.id,
       authId,
@@ -246,7 +325,7 @@ export class AuthService {
     const expiresIn: number | StringValue =
       typeof rawExpires === 'string' && /^\d+$/.test(rawExpires)
         ? Number(rawExpires)
-        : (rawExpires as StringValue) ?? DEFAULT_EXPIRES_IN;
+        : ((rawExpires as StringValue) ?? DEFAULT_EXPIRES_IN);
 
     const accessToken = this.jwtService.sign(payload, { expiresIn });
 
@@ -259,5 +338,18 @@ export class AuthService {
         rol: profile.rol,
       },
     };
+  }
+
+  private assertActiveKnownRole(profile: SupabaseProfile): void {
+    if (profile.rol !== UserRole.ADMIN && profile.rol !== UserRole.CUIDADOR) {
+      throw new UnauthorizedException(
+        'La cuenta no tiene un rol válido. Contacta al administrador.',
+      );
+    }
+    if (profile.estado === 'inactivo') {
+      throw new UnauthorizedException(
+        'La cuenta está deshabilitada. Contacta al administrador.',
+      );
+    }
   }
 }

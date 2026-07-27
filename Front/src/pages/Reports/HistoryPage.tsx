@@ -26,9 +26,12 @@ export function HistoryPage() {
   const [status, setStatus] = useState<'all' | PatientStatus>('all');
   const [records, setRecords] = useState<Measurement[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const myPatientIds = patients.filter((p) => p.caregiverId === user?.id).map((p) => p.id);
-  const patientsMap = new Map(patients.map((p) => [p.id, p]));
+  const patientsMap = useMemo(
+    () => new Map(patients.map((p) => [p.id, p])),
+    [patients],
+  );
 
   useEffect(() => {
     async function fetchData() {

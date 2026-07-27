@@ -1,5 +1,10 @@
-const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
+const API_ORIGIN = (import.meta.env.VITE_API_URL ?? 'http://localhost:3000').replace(
+  /\/+$/,
+  '',
+);
+export const API_BASE = `${API_ORIGIN}/api`;
 const isDev = import.meta.env.DEV;
+const inFlightDevelopmentGets = new Map<string, Promise<unknown>>();
 
 type ApiEnvelope<T> = {
   success?: boolean;
@@ -18,7 +23,7 @@ function parseJson(response: Response): Promise<unknown> {
   return response.json().catch(() => null);
 }
 
-export async function requestJson<T>(
+async function performRequest<T>(
   path: string,
   init?: RequestInit,
   options?: { unwrap?: boolean; devLabel?: string },
@@ -35,10 +40,11 @@ export async function requestJson<T>(
   }
 
   if (!response.ok) {
-    const message =
-      (body as { message?: string; error?: string } | null)?.message ??
+    const rawMessage =
+      (body as { message?: string | string[]; error?: string } | null)?.message ??
       (body as { message?: string; error?: string } | null)?.error ??
       'Error en la solicitud';
+    const message = Array.isArray(rawMessage) ? rawMessage.join(', ') : rawMessage;
     if (isDev && options?.devLabel) {
       console.error(`[${options.devLabel}] Error`, { status: response.status, body });
     }
@@ -55,4 +61,29 @@ export async function requestJson<T>(
   }
 
   return body as T;
+}
+
+export function requestJson<T>(
+  path: string,
+  init?: RequestInit,
+  options?: { unwrap?: boolean; devLabel?: string },
+): Promise<T> {
+  const method = (init?.method ?? 'GET').toUpperCase();
+  if (!isDev || method !== 'GET') {
+    return performRequest<T>(path, init, options);
+  }
+
+  const key = `${method}:${path}`;
+  const existing = inFlightDevelopmentGets.get(key);
+  if (existing) return existing as Promise<T>;
+
+  const request = performRequest<T>(path, init, options);
+  inFlightDevelopmentGets.set(key, request);
+  const cleanup = () => {
+    if (inFlightDevelopmentGets.get(key) === request) {
+      inFlightDevelopmentGets.delete(key);
+    }
+  };
+  void request.then(cleanup, cleanup);
+  return request;
 }

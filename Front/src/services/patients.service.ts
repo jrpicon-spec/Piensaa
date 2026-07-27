@@ -7,7 +7,7 @@ export interface Patient {
   fullName: string;
   age?: number;
   birthDate: string;
-  gender: 'masculino' | 'femenino';
+  gender: 'masculino' | 'femenino' | 'otro';
   phone: string;
   address: string;
   guardianName: string;
@@ -26,7 +26,7 @@ interface BackendPatient {
   nombre: string;
   apellido: string;
   fecha_nacimiento: string;
-  sexo: 'masculino' | 'femenino';
+  sexo: 'masculino' | 'femenino' | 'otro';
   telefono: string;
   direccion: string;
   responsable: string;
@@ -67,7 +67,7 @@ export interface CreatePatientDto {
   nombre: string;
   apellido: string;
   fecha_nacimiento: string;
-  sexo: 'masculino' | 'femenino';
+  sexo: 'masculino' | 'femenino' | 'otro';
   telefono: string;
   direccion: string;
   responsable: string;
@@ -79,7 +79,7 @@ export interface UpdatePatientDto {
   nombre?: string;
   apellido?: string;
   fecha_nacimiento?: string;
-  sexo?: 'masculino' | 'femenino';
+  sexo?: 'masculino' | 'femenino' | 'otro';
   telefono?: string;
   direccion?: string;
   responsable?: string;

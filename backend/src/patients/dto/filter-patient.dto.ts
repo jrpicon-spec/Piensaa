@@ -1,10 +1,22 @@
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
-import { Sexo } from '../../common/enums/clinical.enum';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
+import { PatientStatus, Sexo } from '../../common/enums/clinical.enum';
+import { trimOptionalString } from '../../common/validation/validation.utils';
 
 export class FilterPatientDto {
   @IsOptional()
+  @Transform(trimOptionalString)
   @IsString()
+  @MaxLength(100)
   search?: string;
 
   @IsOptional()
@@ -12,11 +24,12 @@ export class FilterPatientDto {
   cuidador_id?: string;
 
   @IsOptional()
+  @IsEnum(Sexo)
   sexo?: Sexo;
 
   @IsOptional()
-  @IsString()
-  estado?: 'normal' | 'atencion' | 'riesgo';
+  @IsEnum(PatientStatus)
+  estado?: PatientStatus;
 
   @IsOptional()
   @Type(() => Number)

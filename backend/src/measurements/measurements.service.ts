@@ -1,20 +1,29 @@
-import { BadRequestException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { PatientsService } from '../patients/patients.service';
-import { DeviceService } from '../device/device.service';
 import {
   CreateMeasurementDto,
   MeasurementResponse,
   UpdateMeasurementDto,
 } from './dto/measurement.dto';
-import { FilterMeasurementDto, MeasurementStats } from './dto/filter-measurement.dto';
+import {
+  FilterMeasurementDto,
+  MeasurementStats,
+} from './dto/filter-measurement.dto';
 import type { AuthenticatedUser } from '../common/types/user.types';
 import { UserRole } from '../common/enums/user-role.enum';
 
 const THRESHOLD_NORMAL = 350;
 const THRESHOLD_ATENCION = 500;
 
-function classifyState(reactionTimeMs: number): 'normal' | 'atencion' | 'riesgo' {
+function classifyState(
+  reactionTimeMs: number,
+): 'normal' | 'atencion' | 'riesgo' {
   if (reactionTimeMs < THRESHOLD_NORMAL) return 'normal';
   if (reactionTimeMs < THRESHOLD_ATENCION) return 'atencion';
   return 'riesgo';
@@ -22,22 +31,24 @@ function classifyState(reactionTimeMs: number): 'normal' | 'atencion' | 'riesgo'
 
 @Injectable()
 export class MeasurementsService {
+  private readonly logger = new Logger(MeasurementsService.name);
+
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly patientsService: PatientsService,
-    @Inject(forwardRef(() => DeviceService))
-    private readonly deviceService: DeviceService,
   ) {}
 
   async create(
     dto: CreateMeasurementDto,
     currentUser: AuthenticatedUser,
   ): Promise<MeasurementResponse> {
-    await this.patientsService.findOne(dto.paciente_id, currentUser).catch(() => {
-      throw new BadRequestException(
-        'El paciente seleccionado no existe o no tienes acceso',
-      );
-    });
+    await this.patientsService
+      .findOne(dto.paciente_id, currentUser)
+      .catch(() => {
+        throw new BadRequestException(
+          'El paciente seleccionado no existe o no tienes acceso',
+        );
+      });
 
     const admin = this.supabaseService.getAdminClient();
     const fecha = dto.fecha ?? new Date().toISOString();
@@ -53,7 +64,8 @@ export class MeasurementsService {
       .from('mediciones')
       .insert(record)
       .select('*')
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (error || !data) {
       throw new BadRequestException(
@@ -61,17 +73,26 @@ export class MeasurementsService {
       );
     }
 
-    await this.syncPatientEstado(dto.paciente_id, estado).catch(() => undefined);
-
-    return {
-      ...this.mapMeasurement(data as unknown as Record<string, unknown>),
+    const measurement = {
+      ...this.mapMeasurement(data as Record<string, unknown>),
       estado,
     };
+
+    await this.syncPatientEstado(dto.paciente_id).catch(
+      (syncError: unknown) => {
+        this.logger.error(
+          `Medición ${measurement.id} guardada, pero falló la sincronización del paciente: ${this.errorMessage(syncError)}`,
+        );
+      },
+    );
+
+    return measurement;
   }
 
   async createFromDevice(
     reactionTime: number,
     patientId: string | null,
+    serverDate = new Date().toISOString(),
   ): Promise<MeasurementResponse> {
     if (!patientId) {
       throw new BadRequestException(
@@ -91,6 +112,7 @@ export class MeasurementsService {
       {
         paciente_id: patientId,
         tiempo_reaccion: reactionTime,
+        fecha: serverDate,
       },
       fakeUser,
     );
@@ -129,7 +151,9 @@ export class MeasurementsService {
         .select('id')
         .eq('cuidador_id', currentUser.id);
 
-      const ids = (pacientes ?? []).map((p) => String((p as { id: string }).id));
+      const ids = (pacientes ?? []).map((p) =>
+        String((p as { id: string }).id),
+      );
       if (ids.length === 0) {
         return { items: [], total: 0 };
       }
@@ -163,14 +187,18 @@ export class MeasurementsService {
       .maybeSingle();
 
     if (error) {
-      throw new BadRequestException(`Error al buscar medición: ${error.message}`);
+      throw new BadRequestException(
+        `Error al buscar medición: ${error.message}`,
+      );
     }
 
     if (!data) {
       throw new NotFoundException(`Medición con id "${id}" no encontrada`);
     }
 
-    const measurement = this.mapMeasurement(data as unknown as Record<string, unknown>);
+    const measurement = this.mapMeasurement(
+      data as unknown as Record<string, unknown>,
+    );
 
     await this.patientsService.findOne(measurement.paciente_id, currentUser);
 
@@ -186,7 +214,10 @@ export class MeasurementsService {
     const admin = this.supabaseService.getAdminClient();
 
     const updates: Record<string, unknown> = {};
-    if (dto.tiempo_reaccion !== undefined) updates['tiempo_reaccion'] = dto.tiempo_reaccion;
+    if (dto.tiempo_reaccion !== undefined) {
+      updates['tiempo_reaccion'] = dto.tiempo_reaccion;
+      updates['estado'] = classifyState(dto.tiempo_reaccion);
+    }
     if (dto.fecha !== undefined) updates['fecha'] = dto.fecha;
 
     if (Object.keys(updates).length === 0) {
@@ -198,7 +229,8 @@ export class MeasurementsService {
       .update(updates)
       .eq('id', id)
       .select('*')
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (error || !data) {
       throw new BadRequestException(
@@ -206,7 +238,19 @@ export class MeasurementsService {
       );
     }
 
-    return this.mapMeasurement(data as unknown as Record<string, unknown>);
+    const measurement = this.mapMeasurement(
+      data as unknown as Record<string, unknown>,
+    );
+    if (dto.tiempo_reaccion !== undefined) {
+      await this.syncPatientEstado(measurement.paciente_id).catch(
+        (syncError: unknown) => {
+          this.logger.error(
+            `Medición ${measurement.id} actualizada, pero falló la sincronización del paciente: ${this.errorMessage(syncError)}`,
+          );
+        },
+      );
+    }
+    return measurement;
   }
 
   async remove(
@@ -246,7 +290,10 @@ export class MeasurementsService {
       );
     }
 
-    const items = (data ?? []) as Array<{ tiempo_reaccion: number; fecha: string }>;
+    const items = (data ?? []) as Array<{
+      tiempo_reaccion: number;
+      fecha: string;
+    }>;
     const total = items.length;
 
     if (total === 0) {
@@ -299,21 +346,26 @@ export class MeasurementsService {
       );
     }
 
-    return data ? this.mapMeasurement(data as unknown as Record<string, unknown>) : null;
+    return data
+      ? this.mapMeasurement(data as unknown as Record<string, unknown>)
+      : null;
   }
 
-  private async syncPatientEstado(
-    pacienteId: string,
-    nuevoEstado: 'normal' | 'atencion' | 'riesgo',
-  ): Promise<void> {
+  private async syncPatientEstado(pacienteId: string): Promise<void> {
     const admin = this.supabaseService.getAdminClient();
 
-    const { data } = await admin
+    const { data, error } = await admin
       .from('mediciones')
       .select('tiempo_reaccion')
       .eq('paciente_id', pacienteId)
       .order('fecha', { ascending: false })
       .limit(5);
+
+    if (error) {
+      throw new BadRequestException(
+        `No se pudo calcular el estado del paciente: ${error.message}`,
+      );
+    }
 
     const times = ((data ?? []) as Array<{ tiempo_reaccion: number }>).map(
       (m) => m.tiempo_reaccion,
@@ -324,10 +376,14 @@ export class MeasurementsService {
     const worst = Math.max(...times);
     const estadoFinal = classifyState(worst);
 
-    await admin.from('pacientes').update({ estado: estadoFinal }).eq('id', pacienteId);
-
-    if (nuevoEstado !== estadoFinal) {
-      await admin.from('pacientes').update({ estado: nuevoEstado }).eq('id', pacienteId);
+    const { error: updateError } = await admin
+      .from('pacientes')
+      .update({ estado: estadoFinal })
+      .eq('id', pacienteId);
+    if (updateError) {
+      throw new BadRequestException(
+        `No se pudo actualizar el estado del paciente: ${updateError.message}`,
+      );
     }
   }
 
@@ -339,7 +395,14 @@ export class MeasurementsService {
       tiempo_reaccion: tiempo,
       fecha: String(row['fecha'] ?? ''),
       created_at: row['created_at'] ? String(row['created_at']) : undefined,
-      estado: classifyState(tiempo),
+      estado:
+        typeof row['estado'] === 'string'
+          ? row['estado']
+          : classifyState(tiempo),
     };
+  }
+
+  private errorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
   }
 }

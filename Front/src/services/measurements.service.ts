@@ -44,6 +44,8 @@ export interface FilterMeasurementsDto {
   offset?: number;
 }
 
+export const MAX_MEASUREMENTS_PAGE_SIZE = 100;
+
 function mapBackendMeasurement(m: BackendMeasurement): Measurement {
   const dateTime = new Date(m.fecha);
   const isValidDate = !Number.isNaN(dateTime.getTime());
@@ -64,8 +66,8 @@ class MeasurementsService {
     if (filter?.paciente_id) params.append('paciente_id', filter.paciente_id);
     if (filter?.desde) params.append('desde', filter.desde);
     if (filter?.hasta) params.append('hasta', filter.hasta);
-    if (filter?.limit) params.append('limit', String(filter.limit));
-    if (filter?.offset) params.append('offset', String(filter.offset));
+    if (filter?.limit !== undefined) params.append('limit', String(filter.limit));
+    if (filter?.offset !== undefined) params.append('offset', String(filter.offset));
 
     const query = params.toString();
     const token = getStoredToken();
@@ -82,6 +84,29 @@ class MeasurementsService {
       items: (data.items ?? []).map(mapBackendMeasurement),
       total: data.total ?? 0,
     };
+  }
+
+  async findAllPaginated(
+    filter?: Omit<FilterMeasurementsDto, 'limit' | 'offset'>,
+  ): Promise<{ items: Measurement[]; total: number }> {
+    const items: Measurement[] = [];
+    let offset = 0;
+    let total = Number.POSITIVE_INFINITY;
+
+    while (offset < total) {
+      const page = await this.findAll({
+        ...filter,
+        limit: MAX_MEASUREMENTS_PAGE_SIZE,
+        ...(offset > 0 ? { offset } : {}),
+      });
+      items.push(...page.items);
+      total = page.total;
+
+      if (page.items.length < MAX_MEASUREMENTS_PAGE_SIZE) break;
+      offset += page.items.length;
+    }
+
+    return { items, total: Number.isFinite(total) ? total : items.length };
   }
 
   async getStats(): Promise<MeasurementStats> {

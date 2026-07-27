@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Cpu, Plus, Search, Wifi } from 'lucide-react';
+import { Cpu, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
@@ -41,15 +41,25 @@ export function DevicesPage() {
 
   useEffect(() => {
     if (!deviceStatus) return;
+    let active = true;
     setDevices((current) =>
       current.map((device) => ({
         ...device,
-        estado: deviceStatus.connected ? 'conectado' : 'desconectado',
-        status: deviceStatus.connected ? 'conectado' : 'desconectado',
+        estado: deviceStatus.status,
+        status: deviceStatus.status,
         lastConnection: deviceStatus.updatedAt,
         ultima_conexion: deviceStatus.updatedAt,
       })),
     );
+    void deviceService
+      .findOne()
+      .then((device) => {
+        if (active) setDevices(device ? [device] : []);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
   }, [deviceStatus]);
 
   const filtered = devices.filter((d) => {
@@ -70,10 +80,6 @@ export function DevicesPage() {
 
   const handleTest = (device: Device) => {
     info('Prueba de conexión', `${device.nombre ?? 'Dispositivo'} · Ping: 12ms`);
-  };
-
-  const handleConfigure = (device: Device) => {
-    info('Configuración', `Abriendo panel de configuración de ${device.nombre ?? 'dispositivo'}...`);
   };
 
   if (loading) return <div className="p-6">Cargando...</div>;
@@ -167,7 +173,6 @@ export function DevicesPage() {
               device={device}
               onConnect={handleConnect}
               onTest={handleTest}
-              onConfigure={handleConfigure}
             />
           ))}
         </div>

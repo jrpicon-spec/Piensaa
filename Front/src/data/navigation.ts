@@ -33,8 +33,8 @@ export const navItems: NavItem[] = [
     roles: ['caregiver'],
   },
   {
-    label: 'Cuidadores',
-    href: '/caregivers',
+    label: 'Usuarios',
+    href: '/users',
     icon: 'UserCircle2',
     roles: ['admin'],
   },

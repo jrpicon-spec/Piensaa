@@ -3,12 +3,15 @@ import { io, type Socket } from 'socket.io-client';
 import { getStoredToken } from '@/services/auth-storage';
 import { useAuth } from './AuthContext';
 
-const SOCKET_URL = (import.meta.env.VITE_SOCKET_URL ?? import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
+const SOCKET_URL = (
+  import.meta.env.VITE_SOCKET_URL ?? 'http://localhost:3000/device'
+).replace(/\/+$/, '');
 
 export interface DeviceStatusPayload {
   status: 'conectado' | 'desconectado';
   connected: boolean;
   patientId: string | null;
+  deviceId: string;
   updatedAt: string;
 }
 
@@ -51,7 +54,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }
 
     const token = getStoredToken();
-    const nextSocket = io(`${SOCKET_URL || window.location.origin}/device`, {
+    const nextSocket = io(SOCKET_URL, {
       transports: ['websocket'],
       auth: {
         clientType: 'frontend',
@@ -69,11 +72,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     nextSocket.on('connect', onConnect);
     nextSocket.on('disconnect', onDisconnect);
     nextSocket.on('deviceStatus', onDeviceStatus);
+    nextSocket.on('deviceStatusChanged', onDeviceStatus);
 
     return () => {
       nextSocket.off('connect', onConnect);
       nextSocket.off('disconnect', onDisconnect);
       nextSocket.off('deviceStatus', onDeviceStatus);
+      nextSocket.off('deviceStatusChanged', onDeviceStatus);
       nextSocket.disconnect();
       if (socketRef.current === nextSocket) {
         socketRef.current = null;
@@ -89,7 +94,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       startTest: (payload) => {
         socketRef.current?.emit('startTest', payload);
       },
-      emit: socketRef.current ? socketRef.current.emit.bind(socketRef.current) : null,
+      emit: socket ? socket.emit.bind(socket) : null,
     }),
     [connected, deviceStatus, socket],
   );
@@ -97,7 +102,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useSocket(): SocketContextValue {
   const ctx = useContext(SocketContext);
   if (!ctx) {

@@ -1,6 +1,91 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+export const PERSON_NAME_PATTERN =
+  /^\p{L}+(?:(?:[ '-]|\u2019)\p{L}+)*(?: +\p{L}+(?:(?:[ '-]|\u2019)\p{L}+)*)*$/u;
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const PHONE_PATTERN = /^\+?[0-9](?:[0-9 -]{5,18}[0-9])?$/;
+export const STRONG_PASSWORD_PATTERN =
+  /^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*(),.?":{}|<>]).{8,128}$/;
+
+export function normalizeText(value: string): string {
+  return value.trim().replace(/ +/g, ' ');
+}
+
+export function sanitizePersonName(value: string): string {
+  return value.replace(/[^\p{L} ]/gu, '');
+}
+
+export function sanitizePhone(value: string): string {
+  const sanitized = value.replace(/[^0-9+ -]/g, '');
+  return sanitized.startsWith('+')
+    ? `+${sanitized.slice(1).replace(/\+/g, '')}`
+    : sanitized.replace(/\+/g, '');
+}
+
+export function validatePersonName(
+  value: string,
+  label = 'nombre',
+  maximumLength = 120,
+): string | undefined {
+  const normalized = normalizeText(value);
+  if (!normalized) return 'No puede dejar este campo vacío.';
+  if (normalized.length < 2) return `El ${label} debe tener al menos 2 caracteres.`;
+  if (normalized.length > maximumLength) {
+    return `El ${label} no puede superar ${maximumLength} caracteres.`;
+  }
+  if (!PERSON_NAME_PATTERN.test(normalized)) return 'Solo se permiten letras.';
+  return undefined;
+}
+
+export function validateEmail(value: string): string | undefined {
+  const normalized = value.trim();
+  if (!normalized) return 'No puede dejar este campo vacío.';
+  if (!EMAIL_PATTERN.test(normalized)) return 'Debe ingresar un correo válido.';
+  return undefined;
+}
+
+export function validatePhone(value: string, required = true): string | undefined {
+  const normalized = value.trim();
+  if (!normalized) return required ? 'No puede dejar este campo vacío.' : undefined;
+  if (normalized.length > 32 || !PHONE_PATTERN.test(normalized)) {
+    return 'Debe ingresar un teléfono válido.';
+  }
+  return undefined;
+}
+
+export function validateBirthDate(value: string): string | undefined {
+  if (!value) return 'No puede dejar este campo vacío.';
+  const birth = parseDateOnly(value);
+  if (!birth) return 'Debe ingresar una fecha de nacimiento válida.';
+  const today = startOfLocalDay(new Date());
+  if (birth.getTime() > today.getTime()) {
+    return 'La fecha de nacimiento no puede ser futura.';
+  }
+  const age = calculateAge(value);
+  if (age < 60) return 'El paciente debe tener al menos 60 años.';
+  if (age > 120) return 'La edad máxima permitida es de 120 años.';
+  return undefined;
+}
+
+export function getBirthDateLimits(today = new Date()): {
+  min: string;
+  max: string;
+} {
+  const currentDay = startOfLocalDay(today);
+  const maxBirthDate = subtractCalendarYears(currentDay, 60);
+  const oldestBirthday = subtractCalendarYears(currentDay, 121);
+  const minBirthDate = new Date(
+    oldestBirthday.getFullYear(),
+    oldestBirthday.getMonth(),
+    oldestBirthday.getDate() + 1,
+  );
+  return {
+    min: formatDateOnly(minBirthDate),
+    max: formatDateOnly(maxBirthDate),
+  };
+}
+
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
@@ -42,14 +127,50 @@ export function relativeTime(date: string | Date): string {
 }
 
 export function calculateAge(birthDate: string): number {
-  const birth = new Date(birthDate);
-  const today = new Date();
+  const birth = parseDateOnly(birthDate);
+  if (!birth) return Number.NaN;
+  const today = startOfLocalDay(new Date());
   let age = today.getFullYear() - birth.getFullYear();
   const monthDiff = today.getMonth() - birth.getMonth();
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
     age--;
   }
   return age;
+}
+
+function parseDateOnly(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const date = new Date(year, month, day);
+  return date.getFullYear() === year &&
+    date.getMonth() === month &&
+    date.getDate() === day
+    ? date
+    : null;
+}
+
+function startOfLocalDay(value: Date): Date {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+}
+
+function subtractCalendarYears(value: Date, years: number): Date {
+  const targetYear = value.getFullYear() - years;
+  const result = new Date(targetYear, value.getMonth(), value.getDate());
+  if (result.getMonth() !== value.getMonth()) {
+    return new Date(targetYear, value.getMonth() + 1, 0);
+  }
+  return result;
+}
+
+function formatDateOnly(value: Date): string {
+  return [
+    value.getFullYear().toString().padStart(4, '0'),
+    (value.getMonth() + 1).toString().padStart(2, '0'),
+    value.getDate().toString().padStart(2, '0'),
+  ].join('-');
 }
 
 export function getInitials(name: string): string {

@@ -39,45 +39,59 @@ export function StatisticsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
+
     async function fetchData() {
       try {
         setLoading(true);
         setError(null);
 
-        const [statsResult, measurementsResult, patientsResult, caregiversResult] = await Promise.all([
+        const [statsResult, measurementsResult, patientsResult, caregiversResult] = await Promise.allSettled([
           dashboardService.getStats(),
-          measurementsService.findAll({ limit: 500 }),
+          measurementsService.findAllPaginated(),
           patientsService.findAll(),
           usersService.findAll(),
         ]);
 
+        if (!active) return;
+        const errors = [statsResult, measurementsResult, patientsResult, caregiversResult]
+          .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+          .map((result) =>
+            result.reason instanceof Error
+              ? result.reason.message
+              : 'Error al cargar una sección de estadísticas',
+          );
+        const measurementsData =
+          measurementsResult.status === 'fulfilled' ? measurementsResult.value : { items: [] };
+        const patientsData = patientsResult.status === 'fulfilled' ? patientsResult.value : [];
+        const caregiversData = caregiversResult.status === 'fulfilled' ? caregiversResult.value : [];
         setData({
-          stats: statsResult ?? null,
-          measurements: Array.isArray(measurementsResult?.items) ? measurementsResult.items : [],
-          patients: Array.isArray(patientsResult) ? patientsResult : [],
-          caregivers: Array.isArray(caregiversResult)
-            ? caregiversResult.filter((c) => c.role === 'cuidador')
+          stats: statsResult.status === 'fulfilled' ? statsResult.value : null,
+          measurements: Array.isArray(measurementsData.items) ? measurementsData.items : [],
+          patients: Array.isArray(patientsData) ? patientsData : [],
+          caregivers: Array.isArray(caregiversData)
+            ? caregiversData.filter((c) => c.role === 'cuidador')
             : [],
         });
+        setError(errors.length > 0 ? errors.join(' ') : null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error al cargar estadísticas');
-        setData({
-          stats: null,
-          measurements: [],
-          patients: [],
-          caregivers: [],
-        });
+        if (active) {
+          setError(err instanceof Error ? err.message : 'Error al cargar estadísticas');
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
 
-    fetchData();
+    void fetchData();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const measurements = data.measurements ?? [];
+  const measurements = useMemo(() => data.measurements ?? [], [data.measurements]);
   const patients = data.patients ?? [];
-  const caregivers = data.caregivers ?? [];
+  const caregivers = useMemo(() => data.caregivers ?? [], [data.caregivers]);
   const stats = data.stats ?? EMPTY_STATS;
   const hasData = measurements.length > 0 || patients.length > 0 || caregivers.length > 0 || data.stats !== null;
 
@@ -125,8 +139,7 @@ export function StatisticsPage() {
   }, [caregivers]);
 
   if (loading) return <div className="p-6">Cargando...</div>;
-  if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
-  if (!hasData) return <div className="p-6 text-muted-foreground">Sin datos disponibles.</div>;
+  if (!hasData && !error) return <div className="p-6 text-muted-foreground">Sin datos disponibles.</div>;
 
   return (
     <div className="space-y-6">
@@ -134,6 +147,12 @@ export function StatisticsPage() {
         title="EstadÃ­sticas"
         description="AnÃ¡lisis avanzado del rendimiento del sistema y los pacientes bajo cuidado."
       />
+
+      {error && (
+        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard icon={Gauge} label="Promedio global" value={summary.avg} unit="ms" variant="sky" index={0} />

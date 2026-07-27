@@ -1,18 +1,7 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import {
-  Activity,
-  Gauge,
-  Radio,
-  Timer,
-  TrendingDown,
-  TrendingUp,
-} from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { Activity, Radio } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
-import { StatCard } from '@/components/dashboard/StatCard';
-import { LineChartCard } from '@/components/charts/LineChartCard';
 import {
   Select,
   SelectContent,
@@ -21,14 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/Select';
 import { patientsService, type Patient } from '@/services/patients.service';
-import { measurementsService } from '@/services/measurements.service';
-import { avg, cn, formatTime } from '@/utils';
-
-function classifyReaction(ms: number): 'normal' | 'atencion' | 'riesgo' {
-  if (ms < 350) return 'normal';
-  if (ms < 500) return 'atencion';
-  return 'riesgo';
-}
+import { cn } from '@/utils';
 
 export function MonitoringPage() {
   const [patients, setPatients] = useState<Patient[]>([]);

@@ -24,11 +24,13 @@ export interface Device {
 
 interface BackendDevice {
   id: string;
+  device_id?: string;
   nombre: string;
   ip: string;
   estado: 'conectado' | 'desconectado';
   ultima_conexion: string;
   paciente_pendiente_id?: string | null;
+  rssi?: number;
 }
 
 function mapBackendDevice(device: BackendDevice): Device {
@@ -44,7 +46,7 @@ function mapBackendDevice(device: BackendDevice): Device {
     ipAddress: device.ip,
     firmware: undefined,
     mac_address: undefined,
-    wifiStrength: undefined,
+    wifiStrength: device.rssi,
     protocol: 'API REST',
     paciente_asignado_id: device.paciente_pendiente_id ?? undefined,
   };

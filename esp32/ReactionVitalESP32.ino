@@ -13,11 +13,12 @@ static const bool SIMULATION_MODE = true;
 static const char* WIFI_SSID = "Red_Software";
 static const char* WIFI_PASSWORD = "S0ft2026t$c.";
 
-// Railway / backend public URL, without trailing slash.
-// Example: "https://your-backend.up.railway.app"
-static const char* SOCKET_HOST = "piensaa-production.up.railway.app";
-static const uint16_t SOCKET_PORT = 443;
-static const char* SOCKET_ENDPOINT = "/socket.io/?EIO=4&transport=websocket";
+// Backend host on the local network. Do not include http:// or a trailing slash.
+static const char* SOCKET_HOST = "192.168.20.118";
+static const uint16_t SOCKET_PORT = 3000;
+// WebSocketsClient adds transport=polling first and transport=websocket&sid=...
+// during the Engine.IO upgrade, so neither transport nor sid belongs here.
+static const char* SOCKET_ENDPOINT = "/socket.io/?EIO=4&clientType=esp32";
 static const char* SOCKET_NAMESPACE = "/device";
 
 // Game hardware pins
@@ -218,7 +219,9 @@ void connectSocket() {
     return;
   }
 
-  socketIO.beginSocketIOSSL(SOCKET_HOST, SOCKET_PORT, "/socket.io/?EIO=4");
+  // This query identifies the ESP32 during the Engine.IO v4 handshake; the
+  // device intentionally does not send a frontend JWT.
+  socketIO.beginSocketIO(SOCKET_HOST, SOCKET_PORT, SOCKET_ENDPOINT);
   socketIO.onEvent(handleWebSocketEvent);
   socketIO.setReconnectInterval(5000);
   socketIO.enableHeartbeat(15000, 3000, 2);
@@ -258,10 +261,12 @@ void handleWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       break;
 
     case WStype_CONNECTED: {
-      socketReady = true;
-      Serial.println("Socket connected");
-      // Socket.IO namespace handshake for /device.
-      sendSocketPacket(String("40") + SOCKET_NAMESPACE + ",");
+      socketReady = false;
+      Serial.println("[SOCKET] WebSocket abierto; iniciando probe Engine.IO...");
+      // This WebSocket upgrades the polling session created internally by
+      // WebSocketsClient. Engine.IO requires probe confirmation before any
+      // Socket.IO namespace packet can be sent.
+      sendSocketPacket("2probe");
       break;
     }
 
@@ -270,15 +275,28 @@ void handleWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
       Serial.print("Socket message: ");
       Serial.println(event);
 
+      if (event == "3probe") {
+        Serial.println("[SOCKET] Probe confirmado; completando upgrade Engine.IO");
+        sendSocketPacket("5");
+        sendSocketPacket(String("40") + SOCKET_NAMESPACE + ",");
+        break;
+      }
+
+      if (event == "2") {
+        // Engine.IO heartbeat (different from a native WebSocket ping frame).
+        sendSocketPacket("3");
+        Serial.println("[SOCKET] Ping Engine.IO recibido; pong enviado");
+        break;
+      }
+
       if (event.startsWith("0")) {
         Serial.println("Engine.IO open packet received");
         break;
       }
 
       if (event.startsWith(String("40") + SOCKET_NAMESPACE)) {
+        socketReady = true;
         Serial.println("Socket.IO namespace /device connected");
-        // Namespace connected, notify backend about ESP32 presence.
-        sendSocketPacket(String("42") + SOCKET_NAMESPACE + ",[\"deviceConnected\"]");
         break;
       }
 
@@ -400,17 +418,10 @@ void sendResult() {
     return;
   }
 
-  unsigned long timestamp = millis();
-
   String payload = "{";
   payload += "\"patientId\":\"" + currentTest.patientId + "\",";
   payload += "\"reactionTime\":" + String(currentTest.reactionTimeMs) + ",";
-  payload += "\"selectedLevel\":" + String(currentTest.selectedLevel) + ",";
-  payload += "\"success\":" + String(currentTest.success ? "true" : "false") + ",";
-  payload += "\"correctButton\":" + String(currentTest.correctButton) + ",";
-  payload += "\"pressedButton\":" + String(currentTest.pressedButton) + ",";
-  payload += "\"timeout\":" + String(currentTest.timeout ? "true" : "false") + ",";
-  payload += "\"timestamp\":" + String(timestamp);
+  payload += "\"level\":" + String(currentTest.selectedLevel);
   payload += "}";
 
   String packet = String("42") + SOCKET_NAMESPACE + ",[\"testFinished\"," + payload + "]";

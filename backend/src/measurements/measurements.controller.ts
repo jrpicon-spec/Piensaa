@@ -46,7 +46,8 @@ export class MeasurementsController {
 
   @Get('patient/:pacienteId/stats')
   statsByPatient(
-    @Param('pacienteId', new ParseUUIDPipe({ version: '4' })) pacienteId: string,
+    @Param('pacienteId', new ParseUUIDPipe({ version: '4' }))
+    pacienteId: string,
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.measurementsService.statsByPatient(pacienteId, user);
@@ -54,7 +55,8 @@ export class MeasurementsController {
 
   @Get('patient/:pacienteId/last')
   async lastMeasurement(
-    @Param('pacienteId', new ParseUUIDPipe({ version: '4' })) pacienteId: string,
+    @Param('pacienteId', new ParseUUIDPipe({ version: '4' }))
+    pacienteId: string,
     @CurrentUser() user: AuthenticatedUser,
   ) {
     const result = await this.measurementsService.getLastMeasurementByPatient(

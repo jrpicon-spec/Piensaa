@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, MoreVertical, Pencil, Phone, Trash2, UserPlus, Users } from 'lucide-react';
+import { Mail, MoreVertical, Pencil, Phone, Trash2, Users } from 'lucide-react';
 import type { Caregiver } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';

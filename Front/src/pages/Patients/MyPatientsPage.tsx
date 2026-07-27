@@ -67,8 +67,7 @@ export function MyPatientsPage() {
   });
 
   const handleSave = async (patient: Patient) => {
-    try {
-      if (editing) {
+    if (editing) {
         const [nombre, ...apellidoParts] = patient.fullName.split(' ');
         const apellido = apellidoParts.join(' ');
         const updated = await patientsService.update(patient.id, {
@@ -96,22 +95,15 @@ export function MyPatientsPage() {
           cuidador_id: user.id,
         });
         setPatients((current) => [created, ...current]);
-      }
-    } catch (err) {
-      throw err;
     }
   };
 
   const handleDelete = async () => {
     if (!toDelete) return;
-    try {
-      await patientsService.remove(toDelete.id);
-      setPatients((current) => current.filter((p) => p.id !== toDelete.id));
-      success('Paciente eliminado', `${toDelete.fullName} fue removido del sistema`);
-      setToDelete(null);
-    } catch (err) {
-      throw err;
-    }
+    await patientsService.remove(toDelete.id);
+    setPatients((current) => current.filter((p) => p.id !== toDelete.id));
+    success('Paciente eliminado', `${toDelete.fullName} fue removido del sistema`);
+    setToDelete(null);
   };
 
   if (loading) return <div className="p-6">Cargando...</div>;

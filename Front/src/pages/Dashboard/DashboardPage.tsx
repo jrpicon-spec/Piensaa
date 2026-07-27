@@ -46,10 +46,11 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { socket, deviceStatus } = useSocket();
+  const [renderedAt] = useState(() => Date.now());
 
   const stats = data?.stats;
-  const measurements = data?.measurements ?? [];
-  const patients = data?.patients ?? [];
+  const measurements = useMemo(() => data?.measurements ?? [], [data?.measurements]);
+  const patients = useMemo(() => data?.patients ?? [], [data?.patients]);
   const caregivers = data?.caregivers ?? [];
 
   useEffect(() => {
@@ -179,7 +180,7 @@ export function DashboardPage() {
   const distributionData = useMemo(() => {
     const last7Days = measurements.filter((r) => {
       const t = new Date(r.date + 'T' + r.time).getTime();
-      return Date.now() - t <= 7 * 24 * 60 * 60 * 1000;
+      return renderedAt - t <= 7 * 24 * 60 * 60 * 1000;
     });
     const normal = last7Days.filter((r) => r.status === 'normal').length;
     const atencion = last7Days.filter((r) => r.status === 'atencion').length;
@@ -189,7 +190,7 @@ export function DashboardPage() {
       { label: 'Atención', value: atencion || stats?.pacientes_por_estado.atencion || 0, variant: 'atencion' as const },
       { label: 'Riesgo', value: riesgo || stats?.pacientes_por_estado.riesgo || 0, variant: 'riesgo' as const },
     ];
-  }, [measurements, stats]);
+  }, [measurements, renderedAt, stats]);
 
   const recentPatients = useMemo(() => {
     return [...patients].sort((a, b) => {

@@ -76,7 +76,10 @@ export function DeviceCard({ device, index = 0, onConnect, onTest, onConfigure }
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onConfigure?.(device)}>
+            <DropdownMenuItem
+              disabled={!onConfigure}
+              onClick={() => onConfigure?.(device)}
+            >
               <Settings className="h-4 w-4" /> Configurar
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onTest?.(device)}>
@@ -155,7 +158,12 @@ export function DeviceCard({ device, index = 0, onConnect, onTest, onConfigure }
         <Button variant="outline" size="sm" className="flex-1" onClick={() => onTest?.(device)}>
           <Activity className="h-3.5 w-3.5" /> Probar
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => onConfigure?.(device)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={!onConfigure}
+          onClick={() => onConfigure?.(device)}
+        >
           <Settings className="h-3.5 w-3.5" />
         </Button>
       </div>

@@ -25,7 +25,7 @@ const DEFAULT_EXPIRES_IN: StringValue = '7d' as StringValue;
         const expiresIn: number | StringValue =
           typeof raw === 'string' && /^\d+$/.test(raw)
             ? Number(raw)
-            : (raw as StringValue) ?? DEFAULT_EXPIRES_IN;
+            : ((raw as StringValue) ?? DEFAULT_EXPIRES_IN);
 
         return {
           secret,

@@ -1,10 +1,11 @@
-export const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
+import { API_BASE } from './api-client';
+import { requestJson } from './api-client';
+import { getStoredToken, setStoredToken } from './auth-storage';
 
 export interface RegisterDto {
   nombre: string;
   email: string;
   password: string;
-  rol: 'admin' | 'cuidador';
 }
 
 export interface AuthResponse {
@@ -52,6 +53,45 @@ class AuthService {
 
   async login(dto: LoginDto): Promise<AuthResponse> {
     return this.request<AuthResponse>('/auth/login', dto);
+  }
+
+  async updateProfile(dto: {
+    nombre: string;
+    email: string;
+    telefono?: string;
+  }) {
+    const token = getStoredToken();
+    const response = await requestJson<{
+      accessToken: string;
+      user: {
+        id: string;
+        nombre: string;
+        email: string;
+        telefono?: string;
+        rol: string;
+      };
+    }>('/auth/profile', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token ?? ''}`,
+      },
+      body: JSON.stringify(dto),
+    });
+    setStoredToken(response.accessToken);
+    return response.user;
+  }
+
+  async changePassword(currentPassword: string, newPassword: string) {
+    const token = getStoredToken();
+    return requestJson<{ changed: true }>('/auth/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token ?? ''}`,
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
   }
 }
 

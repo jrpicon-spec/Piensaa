@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
   IsDateString,
   IsEnum,
@@ -6,44 +6,82 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Length,
+  Matches,
   MaxLength,
+  MinLength,
 } from 'class-validator';
 import { Sexo } from '../../common/enums/clinical.enum';
+import {
+  PERSON_NAME_PATTERN,
+  PHONE_PATTERN,
+  IsAgeBetween,
+  trimOptionalString,
+  trimString,
+} from '../../common/validation/validation.utils';
 
 export class CreatePatientDto {
+  @Transform(trimString)
   @IsString({ message: 'El nombre es obligatorio' })
   @IsNotEmpty({ message: 'El nombre es obligatorio' })
-  @MaxLength(120)
+  @Length(2, 60, { message: 'El nombre debe tener entre 2 y 60 caracteres' })
+  @Matches(PERSON_NAME_PATTERN, {
+    message: 'El nombre solo puede contener letras y espacios',
+  })
   nombre!: string;
 
+  @Transform(trimString)
   @IsString({ message: 'El apellido es obligatorio' })
   @IsNotEmpty({ message: 'El apellido es obligatorio' })
-  @MaxLength(120)
+  @Length(2, 60, { message: 'El apellido debe tener entre 2 y 60 caracteres' })
+  @Matches(PERSON_NAME_PATTERN, {
+    message: 'El apellido solo puede contener letras y espacios',
+  })
   apellido!: string;
 
-  @IsDateString({}, { message: 'La fecha de nacimiento debe ser ISO 8601 (YYYY-MM-DD)' })
+  @IsDateString(
+    {},
+    { message: 'La fecha de nacimiento debe tener formato ISO 8601' },
+  )
+  @IsAgeBetween(60, 120)
   fecha_nacimiento!: string;
 
   @IsEnum(Sexo, { message: 'El sexo debe ser masculino, femenino u otro' })
   sexo!: Sexo;
 
+  @Transform(trimString)
   @IsString()
   @IsNotEmpty({ message: 'El teléfono es obligatorio' })
   @MaxLength(32)
+  @Matches(PHONE_PATTERN, {
+    message:
+      'El teléfono solo puede contener números, espacios, guiones y un prefijo +',
+  })
   telefono!: string;
 
+  @Transform(trimString)
   @IsString()
   @IsNotEmpty({ message: 'La dirección es obligatoria' })
+  @MinLength(2, { message: 'La dirección debe tener al menos 2 caracteres' })
   @MaxLength(255)
   direccion!: string;
 
+  @Transform(trimString)
   @IsString()
   @IsNotEmpty({ message: 'El nombre del responsable es obligatorio' })
+  @MinLength(2, { message: 'El responsable debe tener al menos 2 caracteres' })
   @MaxLength(160)
+  @Matches(PERSON_NAME_PATTERN, {
+    message: 'El responsable solo puede contener letras y espacios',
+  })
   responsable!: string;
 
   @IsOptional()
+  @Transform(trimString)
   @IsString()
+  @MaxLength(1000, {
+    message: 'Las observaciones no pueden superar 1000 caracteres',
+  })
   observaciones?: string;
 
   @IsOptional()
@@ -52,15 +90,60 @@ export class CreatePatientDto {
 }
 
 export class UpdatePatientDto {
-  @IsOptional() @IsString() @MaxLength(120) nombre?: string;
-  @IsOptional() @IsString() @MaxLength(120) apellido?: string;
-  @IsOptional() @IsDateString() fecha_nacimiento?: string;
-  @IsOptional() @IsEnum(Sexo) sexo?: Sexo;
-  @IsOptional() @IsString() @MaxLength(32) telefono?: string;
-  @IsOptional() @IsString() @MaxLength(255) direccion?: string;
-  @IsOptional() @IsString() @MaxLength(160) responsable?: string;
-  @IsOptional() @IsString() observaciones?: string;
-  @IsOptional() @IsUUID('4') cuidador_id?: string;
+  @IsOptional()
+  @Transform(trimString)
+  @IsString()
+  @Length(2, 60)
+  @Matches(PERSON_NAME_PATTERN)
+  nombre?: string;
+
+  @IsOptional()
+  @Transform(trimString)
+  @IsString()
+  @Length(2, 60)
+  @Matches(PERSON_NAME_PATTERN)
+  apellido?: string;
+
+  @IsOptional()
+  @IsDateString()
+  @IsAgeBetween(60, 120)
+  fecha_nacimiento?: string;
+
+  @IsOptional()
+  @IsEnum(Sexo)
+  sexo?: Sexo;
+
+  @IsOptional()
+  @Transform(trimString)
+  @IsString()
+  @MaxLength(32)
+  @Matches(PHONE_PATTERN)
+  telefono?: string;
+
+  @IsOptional()
+  @Transform(trimString)
+  @IsString()
+  @MinLength(2)
+  @MaxLength(255)
+  direccion?: string;
+
+  @IsOptional()
+  @Transform(trimString)
+  @IsString()
+  @MinLength(2)
+  @MaxLength(160)
+  @Matches(PERSON_NAME_PATTERN)
+  responsable?: string;
+
+  @IsOptional()
+  @Transform(trimOptionalString)
+  @IsString()
+  @MaxLength(1000)
+  observaciones?: string;
+
+  @IsOptional()
+  @IsUUID('4')
+  cuidador_id?: string;
 }
 
 export class PatientResponse {

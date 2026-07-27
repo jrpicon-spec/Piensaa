@@ -10,45 +10,62 @@ import {
   Lock,
   Mail,
   ShieldCheck,
-  Stethoscope,
   Users,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { cn } from '@/utils';
-import type { UserRole } from '@/types';
+import { validateEmail } from '@/utils';
+import { getDefaultRoute } from '@/services/auth-routing';
 
 export function LoginPage() {
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const { success } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('admin');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+  if (isAuthenticated && user) {
+    return <Navigate to={getDefaultRoute(user.role)} replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    const normalizedEmail = email.trim().toLowerCase();
+    const validationErrors: Record<string, string> = {};
+    const emailError = validateEmail(normalizedEmail);
+    if (emailError) validationErrors.email = emailError;
+    if (!password) validationErrors.password = 'No puede dejar este campo vacío.';
+    else if (!/\S/.test(password)) validationErrors.password = 'La contraseña no puede contener solo espacios.';
+    else if (password.length < 8) validationErrors.password = 'La contraseña debe tener al menos 8 caracteres.';
+    else if (password.length > 128) validationErrors.password = 'La contraseña no puede superar 128 caracteres.';
+    setFieldErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+
     setIsSubmitting(true);
     try {
-      const ok = await login(email, password, role);
-      if (ok) {
-        success(`Bienvenido/a`, `Sesión iniciada como ${role === 'admin' ? 'Administrador' : 'Cuidador'}`);
-        navigate('/dashboard');
-      } else {
-        setError('Credenciales inválidas. Inténtalo nuevamente.');
-      }
-    } catch {
-      setError('Error al iniciar sesión. Inténtalo nuevamente.');
+      const authenticatedUser = await login(normalizedEmail, password);
+      success(
+        'Bienvenido/a',
+        `Sesión iniciada como ${
+          authenticatedUser.role === 'admin' ? 'Administrador' : 'Cuidador'
+        }`,
+      );
+      navigate(getDefaultRoute(authenticatedUser.role), { replace: true });
+    } catch (loginError) {
+      const message =
+        loginError instanceof Error ? loginError.message : 'Error desconocido';
+      setError(
+        /fetch|network|conexión|failed/i.test(message)
+          ? 'No se pudo conectar con el servidor. Inténtalo nuevamente.'
+          : message || 'Credenciales incorrectas.',
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -143,54 +160,8 @@ export function LoginPage() {
 
           <h1 className="text-3xl font-semibold tracking-tight">Iniciar sesión</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Accede a la plataforma con tus credenciales y selecciona tu rol.
+            Accede a la plataforma con tu correo y contraseña.
           </p>
-
-          {/* Role selector */}
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setRole('admin')}
-              className={cn(
-                'flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition-all',
-                role === 'admin'
-                  ? 'border-sky-500 bg-sky-50/50 shadow-sm'
-                  : 'border-border bg-white hover:border-sky-200 hover:bg-sky-50/30',
-              )}
-            >
-              <div className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-lg',
-                role === 'admin' ? 'bg-sky-500 text-white' : 'bg-sky-100 text-sky-600',
-              )}>
-                <ShieldCheck className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">Administrador</p>
-                <p className="text-xs text-muted-foreground">Acceso completo</p>
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setRole('caregiver')}
-              className={cn(
-                'flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition-all',
-                role === 'caregiver'
-                  ? 'border-emerald-500 bg-emerald-50/50 shadow-sm'
-                  : 'border-border bg-white hover:border-emerald-200 hover:bg-emerald-50/30',
-              )}
-            >
-              <div className={cn(
-                'flex h-9 w-9 items-center justify-center rounded-lg',
-                role === 'caregiver' ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-600',
-              )}>
-                <Stethoscope className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">Cuidador</p>
-                <p className="text-xs text-muted-foreground">Mis pacientes</p>
-              </div>
-            </button>
-          </div>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div className="space-y-1.5">
@@ -200,12 +171,17 @@ export function LoginPage() {
                 <Input
                   type="email"
                   required
+                  maxLength={254}
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setFieldErrors((current) => ({ ...current, email: '' }));
+                  }}
                   placeholder="usuario@reaccionvital.com"
                   className="pl-9"
                 />
               </div>
+              {fieldErrors.email && <p className="text-xs text-rose-600">{fieldErrors.email}</p>}
             </div>
 
             <div className="space-y-1.5">
@@ -215,8 +191,13 @@ export function LoginPage() {
                 <Input
                   type={showPassword ? 'text' : 'password'}
                   required
+                  minLength={8}
+                  maxLength={128}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setFieldErrors((current) => ({ ...current, password: '' }));
+                  }}
                   placeholder="••••••••"
                   className="pl-9 pr-10"
                 />
@@ -229,6 +210,7 @@ export function LoginPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              {fieldErrors.password && <p className="text-xs text-rose-600">{fieldErrors.password}</p>}
               <p className="text-xs text-muted-foreground">Usa las credenciales registradas en el sistema.</p>
             </div>
 

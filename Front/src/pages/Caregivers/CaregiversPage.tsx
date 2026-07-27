@@ -49,36 +49,34 @@ export function CaregiversPage() {
   const totalActive = caregivers.filter((c) => c.status === 'activo').length;
   const totalPatients = caregivers.reduce((sum, c) => sum + (c.patientsCount ?? 0), 0);
 
-  const handleSave = async (cg: Caregiver) => {
-    try {
-      if (editing) {
-        const updated = await usersService.update(cg.id, { nombre: cg.name });
+  const handleSave = async (cg: Caregiver & { password?: string }) => {
+    if (editing) {
+        const updated = await usersService.update(cg.id, {
+          nombre: cg.name,
+          email: cg.email,
+          telefono: cg.phone ?? '',
+          estado: cg.status,
+        });
         setCaregivers((current) => current.map((c) => (c.id === cg.id ? { ...c, ...updated } : c)));
       } else {
         const created = await usersService.create({
           email: cg.email,
-          password: crypto.randomUUID(),
+          password: cg.password ?? '',
           nombre: cg.name,
-          telefono: cg.phone,
+          telefono: cg.phone ?? '',
+          estado: cg.status,
           rol: 'cuidador',
         });
         setCaregivers((current) => [created, ...current]);
-      }
-    } catch (err) {
-      throw err;
     }
   };
 
   const handleDelete = async () => {
     if (!toDelete) return;
-    try {
-      await usersService.remove(toDelete.id);
-      setCaregivers((current) => current.filter((c) => c.id !== toDelete.id));
-      success('Cuidador eliminado', `${toDelete.name} fue removido del sistema`);
-      setToDelete(null);
-    } catch (err) {
-      throw err;
-    }
+    await usersService.remove(toDelete.id);
+    setCaregivers((current) => current.filter((c) => c.id !== toDelete.id));
+    success('Cuidador eliminado', `${toDelete.name} fue removido del sistema`);
+    setToDelete(null);
   };
 
   if (loading) return <div className="p-6">Cargando...</div>;

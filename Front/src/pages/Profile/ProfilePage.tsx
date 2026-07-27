@@ -9,22 +9,95 @@ import { Badge } from '@/components/ui/Badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { formatDate, getInitials } from '@/utils';
+import {
+  formatDate,
+  getInitials,
+  normalizeText,
+  sanitizePersonName,
+  sanitizePhone,
+  validateEmail,
+  validatePersonName,
+  validatePhone,
+  STRONG_PASSWORD_PATTERN,
+} from '@/utils';
+import { authService } from '@/services/auth.service';
 
 export function ProfilePage() {
-  const { user } = useAuth();
-  const { success } = useToast();
+  const { user, updateUser } = useAuth();
+  const { success, error: showError } = useToast();
   const [form, setForm] = useState({
     name: user?.name ?? '',
     email: user?.email ?? '',
     phone: user?.phone ?? '',
   });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
 
   if (!user) return null;
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    success('Perfil actualizado', 'Tus cambios se han guardado correctamente.');
+    const nextErrors: Record<string, string> = {};
+    const nameError = validatePersonName(form.name);
+    if (nameError) nextErrors.name = nameError;
+    const emailError = validateEmail(form.email);
+    if (emailError) nextErrors.email = emailError;
+    const phoneError = validatePhone(form.phone, false);
+    if (phoneError) nextErrors.phone = phoneError;
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    try {
+      const saved = await authService.updateProfile({
+        nombre: normalizeText(form.name),
+        email: form.email.trim().toLowerCase(),
+        telefono: form.phone.trim() || undefined,
+      });
+      const normalized = {
+        name: saved.nombre,
+        email: saved.email,
+        phone: saved.telefono ?? '',
+      };
+      setForm(normalized);
+      updateUser(normalized);
+      success('Perfil actualizado', 'Tus cambios se han guardado correctamente.');
+    } catch (error) {
+      showError(
+        'No se pudo actualizar el perfil',
+        error instanceof Error ? error.message : 'Error desconocido',
+      );
+    }
+  };
+
+  const handlePasswordSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const nextErrors: Record<string, string> = {};
+    if (!passwordForm.current) nextErrors.current = 'No puede dejar este campo vacío.';
+    else if (!/\S/.test(passwordForm.current)) nextErrors.current = 'La contraseña no puede contener solo espacios.';
+    if (!passwordForm.next) nextErrors.next = 'No puede dejar este campo vacío.';
+    else if (!/\S/.test(passwordForm.next)) nextErrors.next = 'La contraseña no puede contener solo espacios.';
+    else if (passwordForm.next.length < 8) nextErrors.next = 'La contraseña debe tener al menos 8 caracteres.';
+    else if (passwordForm.next.length > 128) nextErrors.next = 'La contraseña no puede superar 128 caracteres.';
+    else if (!STRONG_PASSWORD_PATTERN.test(passwordForm.next)) {
+      nextErrors.next =
+        'Debe incluir una mayúscula, un número y un carácter especial.';
+    }
+    if (!passwordForm.confirm) nextErrors.confirm = 'No puede dejar este campo vacío.';
+    else if (passwordForm.next !== passwordForm.confirm) nextErrors.confirm = 'Las contraseñas no coinciden.';
+    setPasswordErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    try {
+      await authService.changePassword(passwordForm.current, passwordForm.next);
+      success('Contraseña actualizada');
+      setPasswordForm({ current: '', next: '', confirm: '' });
+    } catch (error) {
+      showError(
+        'No se pudo actualizar la contraseña',
+        error instanceof Error ? error.message : 'Error desconocido',
+      );
+    }
   };
 
   return (
@@ -90,9 +163,13 @@ export function ProfilePage() {
               <Label htmlFor="p-name">Nombre completo</Label>
               <Input
                 id="p-name"
+                required
+                minLength={2}
+                maxLength={120}
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onChange={(e) => setForm({ ...form, name: sanitizePersonName(e.target.value) })}
               />
+              {errors.name && <p className="text-xs text-rose-600">{errors.name}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="p-email">Correo electrónico</Label>
@@ -101,20 +178,26 @@ export function ProfilePage() {
                 <Input
                   id="p-email"
                   type="email"
+                  required
+                  maxLength={254}
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   className="pl-9"
                 />
               </div>
+              {errors.email && <p className="text-xs text-rose-600">{errors.email}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="p-phone">Teléfono</Label>
               <Input
                 id="p-phone"
+                inputMode="tel"
+                maxLength={32}
                 value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                onChange={(e) => setForm({ ...form, phone: sanitizePhone(e.target.value) })}
                 placeholder="+51 999 000 000"
               />
+              {errors.phone && <p className="text-xs text-rose-600">{errors.phone}</p>}
             </div>
             <div className="flex justify-end pt-2">
               <Button type="submit">
@@ -131,18 +214,47 @@ export function ProfilePage() {
             <h3 className="text-base font-semibold text-foreground">Seguridad</h3>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">Cambia tu contraseña periódicamente.</p>
-          <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); success('Contraseña actualizada'); }}>
+          <form className="mt-4 space-y-3" onSubmit={handlePasswordSave}>
             <div className="space-y-1.5">
               <Label htmlFor="p-current">Actual</Label>
-              <Input id="p-current" type="password" placeholder="••••••••" />
+              <Input
+                id="p-current"
+                type="password"
+                required
+                maxLength={128}
+                value={passwordForm.current}
+                onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
+                placeholder="••••••••"
+              />
+              {passwordErrors.current && <p className="text-xs text-rose-600">{passwordErrors.current}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="p-new">Nueva</Label>
-              <Input id="p-new" type="password" placeholder="••••••••" />
+              <Input
+                id="p-new"
+                type="password"
+                required
+                minLength={8}
+                maxLength={128}
+                value={passwordForm.next}
+                onChange={(e) => setPasswordForm({ ...passwordForm, next: e.target.value })}
+                placeholder="••••••••"
+              />
+              {passwordErrors.next && <p className="text-xs text-rose-600">{passwordErrors.next}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="p-confirm">Confirmar</Label>
-              <Input id="p-confirm" type="password" placeholder="••••••••" />
+              <Input
+                id="p-confirm"
+                type="password"
+                required
+                minLength={8}
+                maxLength={128}
+                value={passwordForm.confirm}
+                onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
+                placeholder="••••••••"
+              />
+              {passwordErrors.confirm && <p className="text-xs text-rose-600">{passwordErrors.confirm}</p>}
             </div>
             <Button type="submit" variant="outline" className="w-full">
               Actualizar contraseña

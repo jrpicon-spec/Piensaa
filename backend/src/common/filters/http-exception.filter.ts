@@ -53,7 +53,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const message =
         typeof res === 'string'
           ? res
-          : (res as { message?: string | string[] }).message ?? exception.message;
+          : ((res as { message?: string | string[] }).message ??
+            exception.message);
 
       return {
         success: false,
@@ -66,7 +67,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     const message =
-      exception instanceof Error ? exception.message : 'Error interno del servidor';
+      exception instanceof Error
+        ? exception.message
+        : 'Error interno del servidor';
 
     return {
       success: false,

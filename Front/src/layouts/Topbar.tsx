@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -32,7 +31,6 @@ export function Topbar() {
   const { user, logout } = useAuth();
   const { setMobileOpen } = useSidebar();
   const navigate = useNavigate();
-  const [searchOpen, setSearchOpen] = useState(false);
 
   if (!user) return null;
 
@@ -74,7 +72,6 @@ export function Topbar() {
           variant="ghost"
           size="icon"
           className="md:hidden ml-auto"
-          onClick={() => setSearchOpen((v) => !v)}
           aria-label="Buscar"
         >
           <Search className="h-5 w-5" />

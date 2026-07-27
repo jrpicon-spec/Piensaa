@@ -13,14 +13,14 @@ export interface User {
 }
 
 export type PatientStatus = 'normal' | 'atencion' | 'riesgo';
-export type Gender = 'masculino' | 'femenino';
+export type Gender = 'masculino' | 'femenino' | 'otro';
 
 export interface Patient {
   id: string;
   fullName: string;
   age?: number;
   birthDate: string;
-  gender: 'masculino' | 'femenino';
+  gender: Gender;
   phone: string;
   address: string;
   guardianName: string;

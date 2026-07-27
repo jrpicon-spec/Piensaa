@@ -7,7 +7,7 @@ import { DashboardPage } from '@/pages/Dashboard/DashboardPage';
 import { PatientsPage } from '@/pages/Patients/PatientsPage';
 import { MyPatientsPage } from '@/pages/Patients/MyPatientsPage';
 import { PatientDetailsPage } from '@/pages/PatientDetails/PatientDetailsPage';
-import { CaregiversPage } from '@/pages/Caregivers/CaregiversPage';
+import { UsersPage } from '@/pages/Users/UsersPage';
 import { DevicesPage } from '@/pages/Devices/DevicesPage';
 import { MonitoringPage } from '@/pages/Monitoring/MonitoringPage';
 import { ReportsPage } from '@/pages/Reports/ReportsPage';
@@ -51,15 +51,16 @@ export function AppRoutes() {
         />
         <Route path="/patients/:id" element={<PatientDetailsPage />} />
 
-        {/* Admin: Cuidadores */}
+        {/* Admin: Usuarios */}
         <Route
-          path="/caregivers"
+          path="/users"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
-              <CaregiversPage />
+              <UsersPage />
             </ProtectedRoute>
           }
         />
+        <Route path="/caregivers" element={<Navigate to="/users" replace />} />
 
         {/* Admin: Dispositivos */}
         <Route

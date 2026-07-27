@@ -19,14 +19,23 @@ import {
   SelectValue,
 } from '@/components/ui/Select';
 import type { Caregiver } from '@/types';
-import { generateAvatarUrl, generateId } from '@/utils';
+import {
+  generateAvatarUrl,
+  generateId,
+  normalizeText,
+  sanitizePersonName,
+  sanitizePhone,
+  validateEmail,
+  validatePersonName,
+  validatePhone,
+} from '@/utils';
 import { useToast } from '@/contexts/ToastContext';
 
 interface CaregiverFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   caregiver?: Caregiver | null;
-  onSave: (caregiver: Caregiver) => void;
+  onSave: (caregiver: Caregiver & { password?: string }) => Promise<void>;
 }
 
 const defaultValues = {
@@ -34,6 +43,7 @@ const defaultValues = {
   email: '',
   phone: '',
   status: 'activo' as 'activo' | 'inactivo',
+  password: '',
 };
 
 export function CaregiverFormModal({ open, onOpenChange, caregiver, onSave }: CaregiverFormModalProps) {
@@ -50,6 +60,7 @@ export function CaregiverFormModal({ open, onOpenChange, caregiver, onSave }: Ca
           email: caregiver.email || '',
           phone: caregiver.phone || '',
           status: caregiver.status,
+          password: '',
         });
       } else {
         setValues(defaultValues);
@@ -58,33 +69,48 @@ export function CaregiverFormModal({ open, onOpenChange, caregiver, onSave }: Ca
     }
   }, [open, caregiver]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
-    if (!values.name.trim()) newErrors.name = 'El nombre es obligatorio';
-    if (!values.email.trim()) newErrors.email = 'El correo es obligatorio';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) newErrors.email = 'Correo inválido';
-    if (!values.phone.trim()) newErrors.phone = 'El teléfono es obligatorio';
+    const nameError = validatePersonName(values.name);
+    if (nameError) newErrors.name = nameError;
+    const emailError = validateEmail(values.email);
+    if (emailError) newErrors.email = emailError;
+    const phoneError = validatePhone(values.phone);
+    if (phoneError) newErrors.phone = phoneError;
+    if (!isEdit) {
+      if (values.password.length < 8 || values.password.length > 128) {
+        newErrors.password = 'La contraseña debe tener entre 8 y 128 caracteres.';
+      } else if (
+        !/^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*(),.?":{}|<>])/.test(
+          values.password,
+        )
+      ) {
+        newErrors.password =
+          'Debe incluir una mayúscula, un número y un carácter especial.';
+      }
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
-    const result: Caregiver = {
+    const result: Caregiver & { password?: string } = {
       id: caregiver?.id ?? `c-${generateId()}`,
-      name: values.name,
-      email: values.email,
-      phone: values.phone,
+      name: normalizeText(values.name),
+      email: values.email.trim().toLowerCase(),
+      phone: values.phone.trim(),
       status: values.status,
       role: caregiver?.role ?? 'cuidador',
       patientsCount: caregiver?.patientsCount ?? 0,
       patientIds: caregiver?.patientIds ?? [],
       avatar: caregiver?.avatar ?? generateAvatarUrl(values.name),
       createdAt: caregiver?.createdAt ?? new Date().toISOString(),
+      ...(!isEdit ? { password: values.password } : {}),
     };
 
-    onSave(result);
+    await onSave(result);
     success(isEdit ? 'Cuidador actualizado' : 'Cuidador creado', `${result.name} fue ${isEdit ? 'actualizado' : 'registrado'} correctamente`);
     onOpenChange(false);
   };
@@ -106,18 +132,43 @@ export function CaregiverFormModal({ open, onOpenChange, caregiver, onSave }: Ca
                 <Label htmlFor="cg-name">Nombre completo *</Label>
                 <Input
                   id="cg-name"
+                  required
+                  minLength={2}
+                  maxLength={120}
                   value={values.name}
-                  onChange={(e) => setValues({ ...values, name: e.target.value })}
+                  onChange={(e) => setValues({ ...values, name: sanitizePersonName(e.target.value) })}
                   placeholder="Ej. Carlos Mendoza"
                 />
                 {errors.name && <p className="text-xs text-rose-600">{errors.name}</p>}
               </div>
+
+              {!isEdit && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="cg-password">Contraseña temporal *</Label>
+                  <Input
+                    id="cg-password"
+                    type="password"
+                    required
+                    minLength={8}
+                    maxLength={128}
+                    value={values.password}
+                    onChange={(e) =>
+                      setValues({ ...values, password: e.target.value })
+                    }
+                  />
+                  {errors.password && (
+                    <p className="text-xs text-rose-600">{errors.password}</p>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <Label htmlFor="cg-email">Correo electrónico *</Label>
                 <Input
                   id="cg-email"
                   type="email"
+                  required
+                  maxLength={254}
                   value={values.email}
                   onChange={(e) => setValues({ ...values, email: e.target.value })}
                   placeholder="usuario@reaccionvital.com"
@@ -129,8 +180,11 @@ export function CaregiverFormModal({ open, onOpenChange, caregiver, onSave }: Ca
                 <Label htmlFor="cg-phone">Teléfono *</Label>
                 <Input
                   id="cg-phone"
+                  required
+                  inputMode="tel"
+                  maxLength={32}
                   value={values.phone}
-                  onChange={(e) => setValues({ ...values, phone: e.target.value })}
+                  onChange={(e) => setValues({ ...values, phone: sanitizePhone(e.target.value) })}
                   placeholder="+51 999 000 000"
                 />
                 {errors.phone && <p className="text-xs text-rose-600">{errors.phone}</p>}

@@ -13,6 +13,7 @@ import {
 import { FilterPatientDto } from './dto/filter-patient.dto';
 import { AuthenticatedUser } from '../common/types/user.types';
 import { UserRole } from '../common/enums/user-role.enum';
+import { escapePostgrestSearch } from '../common/validation/validation.utils';
 
 @Injectable()
 export class PatientsService {
@@ -23,7 +24,12 @@ export class PatientsService {
   async findAll(
     filter: FilterPatientDto,
     currentUser: AuthenticatedUser,
-  ): Promise<{ items: PatientResponse[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    items: PatientResponse[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     const admin = this.supabaseService.getAdminClient();
     const page = filter.page ?? 1;
     const limit = filter.limit ?? 20;
@@ -49,10 +55,13 @@ export class PatientsService {
     }
 
     if (filter.search) {
-      const term = `%${filter.search.toLowerCase()}%`;
-      query = query.or(
-        `nombre.ilike.${term},apellido.ilike.${term},responsable.ilike.${term},telefono.ilike.${term},direccion.ilike.${term}`,
-      );
+      const safeSearch = escapePostgrestSearch(filter.search.toLowerCase());
+      if (safeSearch) {
+        const term = `%${safeSearch}%`;
+        query = query.or(
+          `nombre.ilike.${term},apellido.ilike.${term},responsable.ilike.${term},telefono.ilike.${term},direccion.ilike.${term}`,
+        );
+      }
     }
 
     // Cuidador solo ve sus pacientes asignados
@@ -63,7 +72,9 @@ export class PatientsService {
     const { data, error, count } = await query;
 
     if (error) {
-      throw new BadRequestException(`Error al listar pacientes: ${error.message}`);
+      throw new BadRequestException(
+        `Error al listar pacientes: ${error.message}`,
+      );
     }
 
     const items = ((data ?? []) as Array<Record<string, unknown>>).map((row) =>
@@ -73,7 +84,10 @@ export class PatientsService {
     return { items, total: count ?? items.length, page, limit };
   }
 
-  async findOne(id: string, currentUser: AuthenticatedUser): Promise<PatientResponse> {
+  async findOne(
+    id: string,
+    currentUser: AuthenticatedUser,
+  ): Promise<PatientResponse> {
     const admin = this.supabaseService.getAdminClient();
     const { data, error } = await admin
       .from('pacientes')
@@ -82,7 +96,9 @@ export class PatientsService {
       .maybeSingle();
 
     if (error) {
-      throw new BadRequestException(`Error al buscar paciente: ${error.message}`);
+      throw new BadRequestException(
+        `Error al buscar paciente: ${error.message}`,
+      );
     }
 
     if (!data) {
@@ -96,7 +112,10 @@ export class PatientsService {
     return patient;
   }
 
-  async create(dto: CreatePatientDto, currentUser: AuthenticatedUser): Promise<PatientResponse> {
+  async create(
+    dto: CreatePatientDto,
+    currentUser: AuthenticatedUser,
+  ): Promise<PatientResponse> {
     const admin = this.supabaseService.getAdminClient();
     const isDev = process.env.NODE_ENV !== 'production';
 
@@ -105,6 +124,7 @@ export class PatientsService {
       // Un cuidador solo puede crear pacientes asignándose a sí mismo.
       cuidadorId = currentUser.id;
     }
+    if (cuidadorId) await this.ensureCaregiver(cuidadorId);
 
     const record: Record<string, unknown> = {
       nombre: dto.nombre,
@@ -120,24 +140,26 @@ export class PatientsService {
     };
 
     if (isDev) {
-      this.logger.debug(`CREATE pacientes -> insert payload=${JSON.stringify(record)}`);
+      this.logger.debug(
+        `CREATE pacientes -> insert payload=${JSON.stringify(record)}`,
+      );
     }
 
-    const query = admin
-      .from('pacientes')
-      .insert(record)
-      .select('*')
-      .single();
+    const query = admin.from('pacientes').insert(record).select('*').single();
 
     if (isDev) {
-      this.logger.debug('CREATE pacientes -> query=from("pacientes").insert(record).select("*").single()');
+      this.logger.debug(
+        'CREATE pacientes -> query=from("pacientes").insert(record).select("*").single()',
+      );
     }
 
     const { data, error } = await query;
 
     if (isDev) {
       this.logger.debug(`CREATE pacientes -> data=${JSON.stringify(data)}`);
-      this.logger.debug(`CREATE pacientes -> error=${error ? JSON.stringify(error) : 'null'}`);
+      this.logger.debug(
+        `CREATE pacientes -> error=${error ? JSON.stringify(error) : 'null'}`,
+      );
     }
 
     if (error || !data) {
@@ -153,7 +175,9 @@ export class PatientsService {
     const patient = this.mapPatient(data as unknown as Record<string, unknown>);
 
     if (isDev) {
-      this.logger.debug(`CREATE pacientes -> response=${JSON.stringify(patient)}`);
+      this.logger.debug(
+        `CREATE pacientes -> response=${JSON.stringify(patient)}`,
+      );
     }
 
     return patient;
@@ -170,18 +194,21 @@ export class PatientsService {
     const updates: Record<string, unknown> = {};
     if (dto.nombre !== undefined) updates['nombre'] = dto.nombre;
     if (dto.apellido !== undefined) updates['apellido'] = dto.apellido;
-    if (dto.fecha_nacimiento !== undefined) updates['fecha_nacimiento'] = dto.fecha_nacimiento;
+    if (dto.fecha_nacimiento !== undefined)
+      updates['fecha_nacimiento'] = dto.fecha_nacimiento;
     if (dto.sexo !== undefined) updates['sexo'] = dto.sexo;
     if (dto.telefono !== undefined) updates['telefono'] = dto.telefono;
     if (dto.direccion !== undefined) updates['direccion'] = dto.direccion;
     if (dto.responsable !== undefined) updates['responsable'] = dto.responsable;
-    if (dto.observaciones !== undefined) updates['observaciones'] = dto.observaciones;
+    if (dto.observaciones !== undefined)
+      updates['observaciones'] = dto.observaciones;
     if (dto.cuidador_id !== undefined) {
       if (currentUser.rol !== UserRole.ADMIN) {
         throw new BadRequestException(
           'Solo el administrador puede reasignar el cuidador de un paciente.',
         );
       }
+      await this.ensureCaregiver(dto.cuidador_id);
       updates['cuidador_id'] = dto.cuidador_id;
     }
 
@@ -205,7 +232,10 @@ export class PatientsService {
     return this.mapPatient(data as unknown as Record<string, unknown>);
   }
 
-  async remove(id: string, currentUser: AuthenticatedUser): Promise<{ id: string; deleted: boolean }> {
+  async remove(
+    id: string,
+    currentUser: AuthenticatedUser,
+  ): Promise<{ id: string; deleted: boolean }> {
     await this.findOne(id, currentUser);
     const admin = this.supabaseService.getAdminClient();
 
@@ -220,13 +250,39 @@ export class PatientsService {
     return { id, deleted: true };
   }
 
-  private ensureAccess(patient: PatientResponse, currentUser: AuthenticatedUser): void {
+  private ensureAccess(
+    patient: PatientResponse,
+    currentUser: AuthenticatedUser,
+  ): void {
     if (currentUser.rol === UserRole.ADMIN) return;
 
     if (patient.cuidador_id && patient.cuidador_id !== currentUser.id) {
       throw new BadRequestException(
         'No tienes permisos para acceder a este paciente.',
       );
+    }
+  }
+
+  private async ensureCaregiver(id: string): Promise<void> {
+    const admin = this.supabaseService.getAdminClient();
+    const { data, error } = await admin
+      .from('profiles')
+      .select('id, rol, estado')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      throw new BadRequestException(
+        `No se pudo validar el cuidador: ${error.message}`,
+      );
+    }
+    if (!data || data.rol !== UserRole.CUIDADOR) {
+      throw new BadRequestException(
+        'El cuidador asignado no existe o no tiene rol de cuidador',
+      );
+    }
+    if (data.estado === 'inactivo') {
+      throw new BadRequestException('No se puede asignar un cuidador inactivo');
     }
   }
 

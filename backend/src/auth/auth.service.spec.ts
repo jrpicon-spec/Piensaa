@@ -1,12 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { SupabaseService } from '../supabase/supabase.service';
 
 describe('AuthService', () => {
   let service: AuthService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AuthService],
+      providers: [
+        AuthService,
+        { provide: SupabaseService, useValue: {} },
+        { provide: JwtService, useValue: {} },
+        { provide: ConfigService, useValue: {} },
+      ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
