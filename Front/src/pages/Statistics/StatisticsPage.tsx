@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3, Brain, Gauge, Timer, TrendingUp, Users } from 'lucide-react';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { LineChartCard } from '@/components/charts/LineChartCard';
 import { BarChartCard } from '@/components/charts/BarChartCard';
@@ -126,7 +125,7 @@ export function StatisticsPage() {
   const distribution = useMemo(() => {
     return [
       { label: 'Normal', value: stats.pacientes_por_estado.normal, variant: 'normal' as const },
-      { label: 'AtenciÃ³n', value: stats.pacientes_por_estado.atencion, variant: 'atencion' as const },
+      { label: 'Atención', value: stats.pacientes_por_estado.atencion, variant: 'atencion' as const },
       { label: 'Riesgo', value: stats.pacientes_por_estado.riesgo, variant: 'riesgo' as const },
     ];
   }, [stats]);
@@ -142,11 +141,15 @@ export function StatisticsPage() {
   if (!hasData && !error) return <div className="p-6 text-muted-foreground">Sin datos disponibles.</div>;
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="EstadÃ­sticas"
-        description="AnÃ¡lisis avanzado del rendimiento del sistema y los pacientes bajo cuidado."
-      />
+    <div className="space-y-10 pb-6">
+      <header className="border-b border-slate-200/70 pb-8 pt-1">
+        <h1 className="text-4xl font-semibold tracking-[-0.035em] text-slate-950">
+          Estadísticas
+        </h1>
+        <p className="mt-3 max-w-3xl text-lg leading-7 text-slate-500">
+          Análisis avanzado del rendimiento del sistema y los pacientes bajo cuidado.
+        </p>
+      </header>
 
       {error && (
         <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -154,60 +157,67 @@ export function StatisticsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <StatCard icon={Gauge} label="Promedio global" value={summary.avg} unit="ms" variant="sky" index={0} />
-        <StatCard icon={TrendingUp} label="Mejor marca" value={summary.best} unit="ms" variant="emerald" index={1} />
-        <StatCard icon={Brain} label="Peor marca" value={summary.worst} unit="ms" variant="rose" index={2} />
-        <StatCard icon={Timer} label="Pruebas totales" value={summary.total} variant="violet" index={3} />
-        <StatCard icon={Users} label="Pacientes" value={summary.patients} variant="amber" index={4} />
-        <StatCard icon={BarChart3} label="Cuidadores" value={summary.caregivers} variant="slate" index={5} />
-      </div>
+      <section aria-label="Indicadores principales" className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <StatCard presentation="statistics" icon={Gauge} label="Promedio global" value={summary.avg} unit="ms" variant="sky" index={0} />
+        <StatCard presentation="statistics" icon={TrendingUp} label="Mejor marca" value={summary.best} unit="ms" variant="emerald" index={1} />
+        <StatCard presentation="statistics" icon={Brain} label="Peor marca" value={summary.worst} unit="ms" variant="rose" index={2} />
+        <StatCard presentation="statistics" icon={Timer} label="Pruebas totales" value={summary.total} variant="violet" index={3} />
+        <StatCard presentation="statistics" icon={Users} label="Pacientes" value={summary.patients} variant="amber" index={4} />
+        <StatCard presentation="statistics" icon={BarChart3} label="Cuidadores" value={summary.caregivers} variant="slate" index={5} />
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <section aria-label="Gráficos de rendimiento" className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <LineChartCard
+          presentation="statistics"
           title="Tendencia mensual"
-          description="Promedio de tiempo de reacciÃ³n por mes"
+          description="Promedio de tiempo de reacción por mes"
           data={monthlyData}
+          color="#3b82a0"
+          height={300}
         />
         <BarChartCard
+          presentation="statistics"
           title="Productividad por cuidador"
           description="Pacientes atendidos por cuidador"
           data={caregiverPerformance}
           unit=""
+          height={300}
         />
-      </div>
+      </section>
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-1 lg:grid-cols-3 gap-4"
+        className="grid grid-cols-1 gap-6 lg:grid-cols-3"
       >
         <BarChartCard
-          title="DistribuciÃ³n general"
+          presentation="statistics"
+          title="Distribución general"
           description="Porcentaje de estados"
           data={distribution}
           unit=""
           coloredByVariant
+          height={280}
         />
-        <div className="lg:col-span-2 rounded-2xl border border-border bg-card p-5 shadow-card">
-          <h3 className="text-base font-semibold text-foreground">Resumen del sistema</h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">Datos actualizados en tiempo real</p>
-          <div className="mt-4 space-y-3">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 hover:border-slate-300/80 hover:shadow-[0_14px_32px_rgba(15,23,42,0.07)] lg:col-span-2">
+          <h3 className="text-[15px] font-semibold text-slate-900">Resumen del sistema</h3>
+          <p className="mt-1.5 text-sm text-slate-500">Datos actualizados en tiempo real</p>
+          <div className="mt-7 space-y-4">
             <motion.div
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              className="flex items-start gap-3 rounded-xl border border-border bg-white p-3"
+              className="flex items-start gap-4 rounded-xl border border-emerald-100/80 bg-emerald-50/40 p-4 transition-colors hover:bg-emerald-50/70"
             >
               <span className="mt-1.5 h-2 w-2 rounded-full bg-emerald-500" />
               <p className="text-sm text-foreground">
-                {stats.pacientes_por_estado.normal} pacientes mantienen un tiempo de reacciÃ³n normal.
+                {stats.pacientes_por_estado.normal} pacientes mantienen un tiempo de reacción normal.
               </p>
             </motion.div>
             <motion.div
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
-              className="flex items-start gap-3 rounded-xl border border-border bg-white p-3"
+              className="flex items-start gap-4 rounded-xl border border-rose-100/80 bg-rose-50/40 p-4 transition-colors hover:bg-rose-50/70"
             >
               <span className="mt-1.5 h-2 w-2 rounded-full bg-rose-500" />
               <p className="text-sm text-foreground">

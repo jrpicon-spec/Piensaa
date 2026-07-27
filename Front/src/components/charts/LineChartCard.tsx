@@ -25,6 +25,7 @@ interface LineChartCardProps {
   height?: number;
   index?: number;
   showArea?: boolean;
+  presentation?: 'default' | 'statistics';
 }
 
 export function LineChartCard({
@@ -36,21 +37,25 @@ export function LineChartCard({
   height = 280,
   index = 0,
   showArea = true,
+  presentation = 'default',
 }: LineChartCardProps) {
+  const isStatistics = presentation === 'statistics';
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.06, duration: 0.4 }}
-      className="rounded-2xl border border-border bg-card p-5 shadow-card"
+      className={isStatistics
+        ? 'rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 hover:border-slate-300/80 hover:shadow-[0_14px_32px_rgba(15,23,42,0.07)]'
+        : 'rounded-2xl border border-border bg-card p-5 shadow-card'}
     >
       <div className="flex items-start justify-between">
         <div>
-          <h3 className="text-base font-semibold text-foreground">{title}</h3>
-          {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
+          <h3 className={isStatistics ? 'text-[15px] font-semibold text-slate-900' : 'text-base font-semibold text-foreground'}>{title}</h3>
+          {description && <p className={isStatistics ? 'mt-1.5 text-sm text-slate-500' : 'mt-0.5 text-xs text-muted-foreground'}>{description}</p>}
         </div>
       </div>
-      <div className="mt-4" style={{ height }}>
+      <div className={isStatistics ? 'mt-7' : 'mt-4'} style={{ height }}>
         <ResponsiveContainer width="100%" height="100%">
           {showArea ? (
             <AreaChart data={data} margin={{ top: 10, right: 8, left: -10, bottom: 0 }}>
@@ -60,17 +65,17 @@ export function LineChartCard({
                   <stop offset="100%" stopColor={color} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <CartesianGrid strokeDasharray="4 6" stroke="#e8edf3" vertical={false} />
               <XAxis
                 dataKey="label"
                 stroke="#94a3b8"
-                fontSize={11}
+                fontSize={12}
                 tickLine={false}
                 axisLine={false}
               />
               <YAxis
                 stroke="#94a3b8"
-                fontSize={11}
+                fontSize={12}
                 tickLine={false}
                 axisLine={false}
                 unit={unit}
@@ -80,9 +85,10 @@ export function LineChartCard({
                 contentStyle={{
                   backgroundColor: 'white',
                   border: '1px solid #e2e8f0',
-                  borderRadius: '12px',
-                  boxShadow: '0 10px 25px -3px rgba(15, 23, 42, 0.08)',
-                  fontSize: '12px',
+                  borderRadius: '14px',
+                  boxShadow: '0 16px 40px -8px rgba(15, 23, 42, 0.18)',
+                  fontSize: '13px',
+                  padding: '10px 12px',
                 }}
                 labelStyle={{ fontWeight: 600 }}
                 formatter={(value) => [`${value ?? 0} ${unit}`, 'Tiempo']}

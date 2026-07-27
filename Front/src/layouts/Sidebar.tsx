@@ -19,12 +19,12 @@ export function Sidebar() {
   const content = (
     <div
       className={cn(
-        'flex h-full flex-col border-r border-border bg-white transition-all duration-300',
+        'flex h-full flex-col border-r border-slate-200/80 bg-white transition-all duration-300',
         isCollapsed ? 'w-[78px]' : 'w-64',
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center gap-2 border-b border-border px-4">
+      <div className="flex h-[72px] items-center gap-3 border-b border-slate-100 px-4">
         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl gradient-medical text-white shadow-elevated">
           <Activity className="h-5 w-5" />
         </div>
@@ -44,8 +44,8 @@ export function Sidebar() {
 
       {/* Navigation */}
       <TooltipProvider delayDuration={100}>
-        <nav className="flex-1 overflow-y-auto p-3">
-          <ul className="flex flex-col gap-1">
+        <nav className="flex-1 overflow-y-auto px-3 py-5">
+          <ul className="flex flex-col gap-1.5">
             {items.map((item) => {
               const Icon = iconMap[item.icon] ?? Activity;
               const isActive =
@@ -55,23 +55,23 @@ export function Sidebar() {
                   to={item.href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
-                    'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+                    'group relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
                     isActive
-                      ? 'bg-sky-50 text-sky-700 shadow-sm'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-foreground',
+                      ? 'bg-sky-50/90 text-sky-800 shadow-[inset_0_0_0_1px_rgba(186,230,253,0.55)]'
+                      : 'text-slate-600 hover:translate-x-0.5 hover:bg-slate-50/90 hover:text-slate-900',
                     isCollapsed && 'justify-center px-2',
                   )}
                 >
                   {isActive && (
                     <motion.span
                       layoutId="sidebar-active-indicator"
-                      className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-primary"
+                      className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-sky-600"
                     />
                   )}
                   <Icon
                     className={cn(
-                      'h-5 w-5 flex-shrink-0 transition-colors',
-                      isActive ? 'text-primary' : 'text-slate-500 group-hover:text-sky-600',
+                      'h-[19px] w-[19px] flex-shrink-0 transition-colors duration-200',
+                      isActive ? 'text-sky-700' : 'text-slate-400 group-hover:text-sky-600',
                     )}
                   />
                   {!isCollapsed && <span className="truncate">{item.label}</span>}
@@ -95,7 +95,7 @@ export function Sidebar() {
       </TooltipProvider>
 
       {/* Footer */}
-      <div className="border-t border-border p-3">
+      <div className="border-t border-slate-100 p-3">
         {!isCollapsed && (
           <div className="rounded-xl bg-gradient-to-br from-sky-50 to-emerald-50 p-3 mb-2">
             <p className="text-xs font-semibold text-foreground">Estado del sistema</p>
@@ -112,7 +112,7 @@ export function Sidebar() {
           type="button"
           onClick={toggle}
           className={cn(
-            'hidden lg:flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-slate-50 transition',
+            'hidden min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-all duration-200 hover:bg-slate-50 hover:text-slate-800 lg:flex',
             isCollapsed && 'justify-center',
           )}
           aria-label={isCollapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
