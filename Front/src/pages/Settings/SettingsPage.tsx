@@ -10,6 +10,7 @@ import {
   settingsService,
   type SystemSettings,
 } from '@/services/settings.service';
+import { API_URL, DEVICE_SOCKET_URL } from '@/config/runtime';
 
 const defaults: SystemSettings = {
   notifications: true,
@@ -20,9 +21,8 @@ const defaults: SystemSettings = {
   thresholdNormal: 350,
   thresholdAtencion: 500,
   retentionDays: 365,
-  apiBaseUrl: import.meta.env.VITE_API_URL ?? 'http://localhost:3000',
-  websocketUrl:
-    import.meta.env.VITE_SOCKET_URL ?? 'ws://localhost:3000/device',
+  apiBaseUrl: API_URL,
+  websocketUrl: DEVICE_SOCKET_URL,
   mqttUrl: '',
 };
 

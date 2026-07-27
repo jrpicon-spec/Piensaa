@@ -2,10 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { io, type Socket } from 'socket.io-client';
 import { getStoredToken } from '@/services/auth-storage';
 import { useAuth } from './AuthContext';
-
-const SOCKET_URL = (
-  import.meta.env.VITE_SOCKET_URL ?? 'http://localhost:3000/device'
-).replace(/\/+$/, '');
+import { DEVICE_SOCKET_URL } from '@/config/runtime';
 
 export interface DeviceStatusPayload {
   status: 'conectado' | 'desconectado';
@@ -54,8 +51,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }
 
     const token = getStoredToken();
-    const nextSocket = io(SOCKET_URL, {
-      transports: ['websocket'],
+    const nextSocket = io(DEVICE_SOCKET_URL, {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      autoConnect: false,
       auth: {
         clientType: 'frontend',
         token,
@@ -73,6 +72,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     nextSocket.on('disconnect', onDisconnect);
     nextSocket.on('deviceStatus', onDeviceStatus);
     nextSocket.on('deviceStatusChanged', onDeviceStatus);
+    nextSocket.connect();
 
     return () => {
       nextSocket.off('connect', onConnect);

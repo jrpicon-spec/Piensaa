@@ -1,8 +1,6 @@
-const API_ORIGIN = (import.meta.env.VITE_API_URL ?? 'http://localhost:3000').replace(
-  /\/+$/,
-  '',
-);
-export const API_BASE = `${API_ORIGIN}/api`;
+import { API_URL } from '@/config/runtime';
+
+export { API_URL };
 const isDev = import.meta.env.DEV;
 const inFlightDevelopmentGets = new Map<string, Promise<unknown>>();
 
@@ -28,7 +26,7 @@ async function performRequest<T>(
   init?: RequestInit,
   options?: { unwrap?: boolean; devLabel?: string },
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, init);
+  const response = await fetch(`${API_URL}${path}`, init);
   const body = await parseJson(response);
 
   if (isDev && options?.devLabel) {

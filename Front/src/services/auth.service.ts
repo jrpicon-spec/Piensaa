@@ -1,5 +1,4 @@
-import { API_BASE } from './api-client';
-import { requestJson } from './api-client';
+import { API_URL, requestJson } from './api-client';
 import { getStoredToken, setStoredToken } from './auth-storage';
 
 export interface RegisterDto {
@@ -30,7 +29,7 @@ export interface LoginDto {
 
 class AuthService {
   private async request<T>(endpoint: string, body: unknown): Promise<T> {
-    const response = await fetch(`${API_BASE}${endpoint}`, {
+    const response = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
