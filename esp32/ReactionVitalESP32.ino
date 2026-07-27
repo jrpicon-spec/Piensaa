@@ -1,474 +1,1143 @@
 #include <WiFi.h>
 #include <WebSocketsClient.h>
 
-// =========================
-// Configuration
-// =========================
+// =====================================================
+// CONFIGURACIÓN GENERAL
+// =====================================================
 
-// Set to true to test the full backend flow without the physical circuit.
-// When false, the original LED/button game is executed.
-static const bool SIMULATION_MODE = true;
+// false = utilizar LEDs y botones físicos.
+// true = generar automáticamente un resultado de prueba.
+static const bool SIMULATION_MODE = false;
 
-// WiFi credentials
+// Red WiFi.
+// El ESP32 y la computadora deben estar en la misma red.
 static const char* WIFI_SSID = "Red_Software";
 static const char* WIFI_PASSWORD = "S0ft2026t$c.";
 
-// Backend host on the local network. Do not include http:// or a trailing slash.
-static const char* SOCKET_HOST = "192.168.20.118";
+// IP local de la computadora que ejecuta NestJS.
+static const char* SOCKET_HOST = "192.168.20.234";
+
+// Puerto del backend NestJS.
 static const uint16_t SOCKET_PORT = 3000;
-// WebSocketsClient adds transport=polling first and transport=websocket&sid=...
-// during the Engine.IO upgrade, so neither transport nor sid belongs here.
-static const char* SOCKET_ENDPOINT = "/socket.io/?EIO=4&clientType=esp32";
+
+// Ruta directa WebSocket de Socket.IO / Engine.IO.
+static const char* SOCKET_PATH =
+  "/socket.io/?EIO=4&transport=websocket&clientType=esp32";
+
+// Namespace configurado en NestJS.
 static const char* SOCKET_NAMESPACE = "/device";
 
-// Game hardware pins
-static const uint8_t LED_PINS[3] = {16, 17, 18};
-static const uint8_t BUTTON_PINS[3] = {32, 33, 25};
+// Identificador fijo del dispositivo.
+static const char* DEVICE_ID = "esp32-reaccion-01";
+static const char* DEVICE_TYPE = "esp32";
 
-// Debounce and timing
+// =====================================================
+// PINES DEL CIRCUITO
+// =====================================================
+
+static const uint8_t LED_PINS[3] = {
+  5,
+  18,
+  19
+};
+
+static const uint8_t BUTTON_PINS[3] = {
+  4,
+  16,
+  17
+};
+
+// =====================================================
+// TIEMPOS
+// =====================================================
+
 static const unsigned long BUTTON_DEBOUNCE_MS = 35;
 static const unsigned long SOCKET_RECONNECT_MS = 5000;
-static const unsigned long WIFI_RECONNECT_MS = 5000;
-static const unsigned long IDLE_POLL_MS = 10;
+
+static const unsigned long MIN_PREPARATION_MS = 500;
+static const unsigned long MAX_PREPARATION_MS = 1500;
+
+// =====================================================
+// ESTADO DE LA PRUEBA
+// =====================================================
 
 struct TestContext {
   String patientId;
-  int selectedLevel = 1; // 1=Fácil, 2=Medio, 3=Difícil, 4=Frenético
+
+  int selectedLevel = 1;
+
   bool active = false;
+  bool preparing = false;
+  bool ledActivated = false;
+
   bool timeout = false;
   bool success = false;
+
   int correctButton = -1;
   int pressedButton = -1;
+
+  unsigned long preparationStartedAt = 0;
+  unsigned long preparationDelayMs = 0;
+
   unsigned long startedAt = 0;
   unsigned long expectedTimeoutMs = 0;
   unsigned long reactionTimeMs = 0;
+
+  unsigned long simulationTargetMs = 0;
 };
 
-WebSocketsClient socketIO;
+WebSocketsClient webSocket;
 TestContext currentTest;
 
-bool wifiReady = false;
-bool socketReady = false;
-unsigned long lastWifiAttempt = 0;
-unsigned long lastSocketAttempt = 0;
-unsigned long lastPoll = 0;
+// =====================================================
+// ESTADO DE CONEXIÓN
+// =====================================================
 
-// =========================
-// Forward declarations
-// =========================
+bool engineConnected = false;
+bool namespaceRequested = false;
+bool namespaceConnected = false;
 
-void connectWifi();
-void connectSocket();
-void reconnect();
-void waitForTest();
+unsigned long lastWifiReconnectAttempt = 0;
+
+// =====================================================
+// DECLARACIONES
+// =====================================================
+
+void connectWiFi();
+void connectWebSocket();
+void reconnectWiFi();
+
+void webSocketEvent(
+  WStype_t type,
+  uint8_t* payload,
+  size_t length
+);
+
+void sendPacket(String packet);
+void sendDevicePresence();
+
+void processSocketMessage(const String& message);
+void processStartTest(const String& message);
+
+void prepareNewTest();
 void runRealGame();
 void runSimulation();
+
 void sendResult();
-void handleWebSocketEvent(WStype_t type, uint8_t* payload, size_t length);
-void sendSocketPacket(String packet);
-void applyLevel(int level);
+void finishTest();
+
 void resetGameOutputs();
-void showLed(uint8_t ledIndex, bool on);
+void resetTestContext();
+
+void showLed(uint8_t ledIndex, bool state);
+
+bool anyButtonPressed();
 int readPressedButton();
 int pickRandomLed();
+
 unsigned long levelTimeoutMs(int level);
 unsigned long simulationDelayMs(int level);
 
-// =========================
-// Helpers
-// =========================
+String payloadToString(
+  uint8_t* payload,
+  size_t length
+);
 
-static String trimJsonPayload(const uint8_t* payload, size_t length) {
-  String data;
-  data.reserve(length + 1);
-  for (size_t i = 0; i < length; ++i) {
-    data += static_cast<char>(payload[i]);
-  }
-  return data;
-}
+String extractJsonString(
+  const String& json,
+  const String& key
+);
 
-static String extractJsonString(const String& json, const String& key) {
-  const String needle = "\"" + key + "\"";
-  int start = json.indexOf(needle);
-  if (start < 0) return "";
-  start = json.indexOf(':', start);
-  if (start < 0) return "";
-  int firstQuote = json.indexOf('"', start + 1);
-  if (firstQuote < 0) return "";
-  int secondQuote = json.indexOf('"', firstQuote + 1);
-  if (secondQuote < 0) return "";
-  return json.substring(firstQuote + 1, secondQuote);
-}
+int extractJsonInt(
+  const String& json,
+  const String& key,
+  int defaultValue
+);
 
-static int extractJsonInt(const String& json, const String& key, int defaultValue = 0) {
-  const String needle = "\"" + key + "\"";
-  int start = json.indexOf(needle);
-  if (start < 0) return defaultValue;
-  start = json.indexOf(':', start);
-  if (start < 0) return defaultValue;
-  int end = start + 1;
-  while (end < static_cast<int>(json.length()) &&
-         (json[end] == ' ' || json[end] == '\t' || json[end] == '"')) {
-    ++end;
-  }
-  int stop = end;
-  while (stop < static_cast<int>(json.length()) &&
-         (isDigit(json[stop]) || json[stop] == '-')) {
-    ++stop;
-  }
-  if (stop <= end) return defaultValue;
-  return json.substring(end, stop).toInt();
-}
-
-static bool extractJsonBool(const String& json, const String& key, bool defaultValue = false) {
-  const String needle = "\"" + key + "\"";
-  int start = json.indexOf(needle);
-  if (start < 0) return defaultValue;
-  start = json.indexOf(':', start);
-  if (start < 0) return defaultValue;
-  String tail = json.substring(start + 1);
-  tail.trim();
-  if (tail.startsWith("true")) return true;
-  if (tail.startsWith("false")) return false;
-  return defaultValue;
-}
-
-// =========================
-// Setup / Loop
-// =========================
+// =====================================================
+// SETUP
+// =====================================================
 
 void setup() {
   Serial.begin(115200);
-  delay(300);
+  delay(1500);
+
+  Serial.println();
+  Serial.println("======================================");
+  Serial.println("   SISTEMA DE PRUEBA DE REACCION");
+  Serial.println("======================================");
 
   randomSeed(esp_random());
 
-  for (uint8_t i = 0; i < 3; ++i) {
+  for (uint8_t i = 0; i < 3; i++) {
     pinMode(LED_PINS[i], OUTPUT);
     digitalWrite(LED_PINS[i], LOW);
+
     pinMode(BUTTON_PINS[i], INPUT_PULLUP);
   }
 
-  connectWifi();
-  connectSocket();
+  resetTestContext();
   resetGameOutputs();
+
+  connectWiFi();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    connectWebSocket();
+  }
+
+  if (SIMULATION_MODE) {
+    Serial.println("Modo de simulacion ACTIVADO.");
+  } else {
+    Serial.println("Modo de circuito real ACTIVADO.");
+  }
 }
+
+// =====================================================
+// LOOP
+// =====================================================
 
 void loop() {
   if (WiFi.status() != WL_CONNECTED) {
-    wifiReady = false;
-    reconnect();
-    delay(IDLE_POLL_MS);
+    reconnectWiFi();
+    delay(10);
     return;
   }
 
-  if (!socketIO.isConnected()) {
-    socketReady = false;
-    reconnect();
-  }
+  // Mantener activa la conexión WebSocket.
+  webSocket.loop();
 
-  socketIO.loop();
-
+  // Ejecutar la prueba si el backend envió startTest.
   if (currentTest.active) {
     if (SIMULATION_MODE) {
       runSimulation();
     } else {
       runRealGame();
     }
-  } else {
-    waitForTest();
   }
 
-  delay(IDLE_POLL_MS);
+  delay(1);
 }
 
-// =========================
-// Connection management
-// =========================
+// =====================================================
+// WIFI
+// =====================================================
 
-void connectWifi() {
-  if (WiFi.status() == WL_CONNECTED) {
-    wifiReady = true;
-    return;
-  }
+void connectWiFi() {
+  Serial.println();
+  Serial.print("Conectando a WiFi: ");
+  Serial.println(WIFI_SSID);
 
-  Serial.printf("Connecting WiFi to %s\n", WIFI_SSID);
   WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  WiFi.setSleep(false);
 
-  unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 20000) {
+  WiFi.begin(
+    WIFI_SSID,
+    WIFI_PASSWORD
+  );
+
+  unsigned long startedAt = millis();
+
+  while (
+    WiFi.status() != WL_CONNECTED &&
+    millis() - startedAt < 20000
+  ) {
+    Serial.print(".");
     delay(500);
-    Serial.print('.');
   }
+
   Serial.println();
 
-  wifiReady = WiFi.status() == WL_CONNECTED;
-  if (wifiReady) {
-    Serial.print("WiFi connected, IP: ");
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("WiFi conectado.");
+
+    Serial.print("IP ESP32: ");
     Serial.println(WiFi.localIP());
+
+    Serial.print("Gateway: ");
+    Serial.println(WiFi.gatewayIP());
+
+    Serial.print("RSSI: ");
+    Serial.println(WiFi.RSSI());
+
+    Serial.print("Backend: ws://");
+    Serial.print(SOCKET_HOST);
+    Serial.print(":");
+    Serial.println(SOCKET_PORT);
   } else {
-    Serial.println("WiFi connection failed");
+    Serial.println("No se pudo conectar al WiFi.");
   }
 }
 
-void connectSocket() {
-  if (!wifiReady) return;
+void reconnectWiFi() {
+  unsigned long now = millis();
 
-  if (socketIO.isConnected()) {
+  if (now - lastWifiReconnectAttempt < 5000) {
     return;
   }
 
-  // This query identifies the ESP32 during the Engine.IO v4 handshake; the
-  // device intentionally does not send a frontend JWT.
-  socketIO.beginSocketIO(SOCKET_HOST, SOCKET_PORT, SOCKET_ENDPOINT);
-  socketIO.onEvent(handleWebSocketEvent);
-  socketIO.setReconnectInterval(5000);
-  socketIO.enableHeartbeat(15000, 3000, 2);
+  lastWifiReconnectAttempt = now;
+
+  Serial.println("WiFi desconectado. Reconectando...");
+
+  engineConnected = false;
+  namespaceRequested = false;
+  namespaceConnected = false;
+
+  WiFi.disconnect();
+  WiFi.begin(
+    WIFI_SSID,
+    WIFI_PASSWORD
+  );
 }
 
-void reconnect() {
-  unsigned long now = millis();
+// =====================================================
+// WEBSOCKET DIRECTO
+// =====================================================
 
-  if (!wifiReady && now - lastWifiAttempt >= WIFI_RECONNECT_MS) {
-    lastWifiAttempt = now;
-    connectWifi();
-    if (wifiReady) {
-      connectSocket();
-    }
-  }
+void connectWebSocket() {
+  Serial.println();
+  Serial.print("Conectando a ws://");
+  Serial.print(SOCKET_HOST);
+  Serial.print(":");
+  Serial.print(SOCKET_PORT);
+  Serial.println(SOCKET_PATH);
 
-  if (wifiReady && !socketIO.isConnected() && now - lastSocketAttempt >= SOCKET_RECONNECT_MS) {
-    lastSocketAttempt = now;
-    connectSocket();
-  }
+  /*
+   * IMPORTANTE:
+   *
+   * Se utiliza begin(), no beginSocketIO().
+   * Esto fuerza transport=websocket directamente.
+   */
+  webSocket.begin(
+    SOCKET_HOST,
+    SOCKET_PORT,
+    SOCKET_PATH
+  );
+
+  webSocket.onEvent(webSocketEvent);
+
+  webSocket.setReconnectInterval(
+    SOCKET_RECONNECT_MS
+  );
+
+  /*
+   * No usamos enableHeartbeat().
+   *
+   * Engine.IO realiza su propio ping/pong:
+   *
+   * servidor -> "2"
+   * ESP32    -> "3"
+   */
 }
 
-// =========================
-// WebSocket + Socket.IO handling
-// =========================
+// =====================================================
+// EVENTOS DEL WEBSOCKET
+// =====================================================
 
-void handleWebSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
+void webSocketEvent(
+  WStype_t type,
+  uint8_t* payload,
+  size_t length
+) {
   switch (type) {
     case WStype_DISCONNECTED:
-      socketReady = false;
-      Serial.println("Socket disconnected");
+      engineConnected = false;
+      namespaceRequested = false;
+      namespaceConnected = false;
+
+      Serial.println("[SOCKET] Desconectado.");
       break;
 
-    case WStype_ERROR:
-      socketReady = false;
-      Serial.println("Socket error");
-      break;
+    case WStype_CONNECTED:
+      engineConnected = false;
+      namespaceRequested = false;
+      namespaceConnected = false;
 
-    case WStype_CONNECTED: {
-      socketReady = false;
-      Serial.println("[SOCKET] WebSocket abierto; iniciando probe Engine.IO...");
-      // This WebSocket upgrades the polling session created internally by
-      // WebSocketsClient. Engine.IO requires probe confirmation before any
-      // Socket.IO namespace packet can be sent.
-      sendSocketPacket("2probe");
+      Serial.println("[SOCKET] WebSocket conectado.");
+      Serial.println(
+        "[SOCKET] Esperando apertura de Engine.IO..."
+      );
       break;
-    }
 
     case WStype_TEXT: {
-      String event = trimJsonPayload(payload, length);
-      Serial.print("Socket message: ");
-      Serial.println(event);
+      String message = payloadToString(
+        payload,
+        length
+      );
 
-      if (event == "3probe") {
-        Serial.println("[SOCKET] Probe confirmado; completando upgrade Engine.IO");
-        sendSocketPacket("5");
-        sendSocketPacket(String("40") + SOCKET_NAMESPACE + ",");
-        break;
-      }
+      Serial.print("[RECIBIDO] ");
+      Serial.println(message);
 
-      if (event == "2") {
-        // Engine.IO heartbeat (different from a native WebSocket ping frame).
-        sendSocketPacket("3");
-        Serial.println("[SOCKET] Ping Engine.IO recibido; pong enviado");
-        break;
-      }
-
-      if (event.startsWith("0")) {
-        Serial.println("Engine.IO open packet received");
-        break;
-      }
-
-      if (event.startsWith(String("40") + SOCKET_NAMESPACE)) {
-        socketReady = true;
-        Serial.println("Socket.IO namespace /device connected");
-        break;
-      }
-
-      if (event == "40") {
-        Serial.println("Socket.IO root namespace connected");
-        break;
-      }
-
-      // Expected payload:
-      // 42/device,["startTest",{"patientId":"...","level":1}]
-      if (event.indexOf("\"startTest\"") >= 0) {
-        String patientId = extractJsonString(event, "patientId");
-        int level = extractJsonInt(event, "level", 1);
-
-        currentTest.patientId = patientId;
-        currentTest.selectedLevel = constrain(level, 1, 4);
-        currentTest.active = true;
-        currentTest.timeout = false;
-        currentTest.success = false;
-        currentTest.pressedButton = -1;
-        currentTest.correctButton = -1;
-        currentTest.reactionTimeMs = 0;
-        currentTest.startedAt = millis();
-        currentTest.expectedTimeoutMs = levelTimeoutMs(currentTest.selectedLevel);
-
-        Serial.printf("startTest received: patientId=%s level=%d\n",
-                      currentTest.patientId.c_str(),
-                      currentTest.selectedLevel);
-      }
+      processSocketMessage(message);
       break;
     }
+
+    case WStype_ERROR:
+      Serial.println("[SOCKET] Error de WebSocket.");
+      break;
+
+    case WStype_PING:
+      Serial.println(
+        "[WEBSOCKET] Ping de control recibido."
+      );
+      break;
+
+    case WStype_PONG:
+      Serial.println(
+        "[WEBSOCKET] Pong de control recibido."
+      );
+      break;
 
     default:
       break;
   }
 }
 
-void sendSocketPacket(String packet) {
-  socketIO.sendTXT(packet);
-}
+// =====================================================
+// PROCESAR ENGINE.IO Y SOCKET.IO
+// =====================================================
 
-// =========================
-// Game flow
-// =========================
+void processSocketMessage(const String& message) {
+  /*
+   * Apertura de Engine.IO.
+   *
+   * Ejemplo:
+   * 0{"sid":"...","pingInterval":25000,...}
+   */
+  if (message.startsWith("0")) {
+    engineConnected = true;
 
-void waitForTest() {
-  // Idle state. Nothing to do while waiting for backend startTest.
-}
+    Serial.println(
+      "[ENGINE.IO] Sesion abierta correctamente."
+    );
 
-void runRealGame() {
-  if (!currentTest.active) return;
+    if (!namespaceRequested) {
+      String namespacePacket =
+        String("40") +
+        SOCKET_NAMESPACE +
+        ",";
 
-  applyLevel(currentTest.selectedLevel);
+      sendPacket(namespacePacket);
 
-  if (currentTest.startedAt == 0) {
-    currentTest.startedAt = millis();
-  }
+      namespaceRequested = true;
 
-  if (currentTest.correctButton < 0) {
-    currentTest.correctButton = pickRandomLed();
-    showLed(currentTest.correctButton, true);
-    Serial.printf("LED %d ON\n", currentTest.correctButton);
-  }
+      Serial.println(
+        "[SOCKET.IO] Solicitando namespace /device..."
+      );
+    }
 
-  unsigned long elapsed = millis() - currentTest.startedAt;
-  if (elapsed > currentTest.expectedTimeoutMs) {
-    currentTest.timeout = true;
-    currentTest.success = false;
-    currentTest.reactionTimeMs = currentTest.expectedTimeoutMs;
-    currentTest.pressedButton = -1;
-    sendResult();
     return;
   }
 
-  int pressedButton = readPressedButton();
-  if (pressedButton < 0) return;
+  /*
+   * Ping de Engine.IO.
+   *
+   * El servidor envía "2".
+   * El ESP32 debe responder "3".
+   */
+  if (message == "2") {
+    Serial.println(
+      "[ENGINE.IO] Ping recibido."
+    );
 
-  currentTest.pressedButton = pressedButton;
-  currentTest.reactionTimeMs = elapsed;
-  currentTest.success = (pressedButton == currentTest.correctButton);
-
-  if (!currentTest.success) {
-    Serial.printf("Wrong button pressed: %d expected %d\n", pressedButton, currentTest.correctButton);
-    currentTest.timeout = false;
-    sendResult();
+    sendPacket("3");
     return;
   }
 
-  // Keep the original game idea: correct press resolves the round.
-  // We do not alter the randomization or timing logic.
-  sendResult();
-}
+  /*
+   * Confirmación de conexión al namespace.
+   *
+   * Ejemplo:
+   * 40/device,{"sid":"..."}
+   */
+  if (
+    message.startsWith(
+      String("40") + SOCKET_NAMESPACE
+    )
+  ) {
+    namespaceConnected = true;
 
-void runSimulation() {
-  if (!currentTest.active) return;
+    Serial.println(
+      "[SOCKET.IO] Namespace /device conectado."
+    );
 
-  // Simulated timing keeps the same level-dependent timeout behavior.
-  if (currentTest.startedAt == 0) {
-    currentTest.startedAt = millis();
-    currentTest.correctButton = random(0, 3);
-    currentTest.pressedButton = currentTest.correctButton;
-  }
-
-  unsigned long elapsed = millis() - currentTest.startedAt;
-  unsigned long target = simulationDelayMs(currentTest.selectedLevel);
-  if (elapsed < target) return;
-
-  currentTest.reactionTimeMs = target;
-  currentTest.timeout = false;
-  currentTest.success = true;
-  sendResult();
-}
-
-void sendResult() {
-  if (!socketReady) {
-    Serial.println("Socket not ready, cannot send result");
-    currentTest.active = false;
-    resetGameOutputs();
+    sendDevicePresence();
     return;
   }
 
-  String payload = "{";
-  payload += "\"patientId\":\"" + currentTest.patientId + "\",";
-  payload += "\"reactionTime\":" + String(currentTest.reactionTimeMs) + ",";
-  payload += "\"level\":" + String(currentTest.selectedLevel);
-  payload += "}";
+  /*
+   * Error del namespace.
+   */
+  if (
+    message.startsWith(
+      String("44") + SOCKET_NAMESPACE
+    )
+  ) {
+    namespaceConnected = false;
 
-  String packet = String("42") + SOCKET_NAMESPACE + ",[\"testFinished\"," + payload + "]";
-  sendSocketPacket(packet);
+    Serial.println(
+      "[ERROR] El backend rechazo el namespace /device."
+    );
 
-  Serial.print("Result sent: ");
+    return;
+  }
+
+  /*
+   * Evento startTest.
+   */
+  if (
+    message.indexOf("\"startTest\"") >= 0
+  ) {
+    processStartTest(message);
+    return;
+  }
+
+  /*
+   * Evento de confirmación opcional.
+   */
+  if (
+    message.indexOf("\"deviceReady\"") >= 0
+  ) {
+    Serial.println(
+      "[EVENTO] Backend confirmo que el dispositivo esta listo."
+    );
+
+    return;
+  }
+
+  /*
+   * Confirmación opcional del resultado.
+   */
+  if (
+    message.indexOf("\"testResultSaved\"") >= 0
+  ) {
+    Serial.println(
+      "[EVENTO] Resultado guardado correctamente."
+    );
+
+    return;
+  }
+}
+
+// =====================================================
+// ENVIAR PAQUETES
+// =====================================================
+
+void sendPacket(String packet) {
+  if (!webSocket.isConnected()) {
+    Serial.println(
+      "[ERROR] No se puede enviar: WebSocket desconectado."
+    );
+
+    return;
+  }
+
+  Serial.print("[ENVIANDO] ");
   Serial.println(packet);
 
-  currentTest.active = false;
-  currentTest.startedAt = 0;
+  webSocket.sendTXT(packet);
+}
+
+void sendDevicePresence() {
+  String packet =
+    String("42") +
+    SOCKET_NAMESPACE +
+    ",[\"deviceConnected\",{" +
+    "\"deviceId\":\"" +
+    DEVICE_ID +
+    "\"," +
+    "\"deviceType\":\"" +
+    DEVICE_TYPE +
+    "\"," +
+    "\"ipAddress\":\"" +
+    WiFi.localIP().toString() +
+    "\"," +
+    "\"rssi\":" +
+    String(WiFi.RSSI()) +
+    "}]";
+
+  sendPacket(packet);
+
+  Serial.println(
+    "[DISPOSITIVO] Presencia enviada al backend."
+  );
+}
+
+// =====================================================
+// RECIBIR START TEST
+// =====================================================
+
+void processStartTest(const String& message) {
+  if (!namespaceConnected) {
+    Serial.println(
+      "[ERROR] startTest recibido sin namespace conectado."
+    );
+
+    return;
+  }
+
+  if (currentTest.active) {
+    Serial.println(
+      "[AVISO] Ya existe una prueba activa."
+    );
+
+    return;
+  }
+
+  String patientId = extractJsonString(
+    message,
+    "patientId"
+  );
+
+  int level = extractJsonInt(
+    message,
+    "level",
+    1
+  );
+
+  if (patientId.length() == 0) {
+    Serial.println(
+      "[ERROR] startTest no contiene patientId."
+    );
+
+    return;
+  }
+
+  currentTest.patientId = patientId;
+
+  currentTest.selectedLevel = constrain(
+    level,
+    1,
+    4
+  );
+
+  prepareNewTest();
+
+  Serial.println();
+  Serial.println("======================================");
+  Serial.println("NUEVA PRUEBA RECIBIDA");
+  Serial.println("======================================");
+
+  Serial.print("Paciente: ");
+  Serial.println(currentTest.patientId);
+
+  Serial.print("Nivel seleccionado: ");
+  Serial.println(currentTest.selectedLevel);
+
+  Serial.print("Tiempo limite: ");
+  Serial.print(currentTest.expectedTimeoutMs);
+  Serial.println(" ms");
+
+  Serial.println(
+    "Preparado... espere que se encienda un LED."
+  );
+}
+
+// =====================================================
+// PREPARAR PRUEBA
+// =====================================================
+
+void prepareNewTest() {
+  resetGameOutputs();
+
+  currentTest.active = true;
+  currentTest.preparing = true;
+  currentTest.ledActivated = false;
+
+  currentTest.timeout = false;
+  currentTest.success = false;
+
   currentTest.correctButton = -1;
   currentTest.pressedButton = -1;
+
+  currentTest.startedAt = 0;
   currentTest.reactionTimeMs = 0;
+  currentTest.simulationTargetMs = 0;
+
+  currentTest.expectedTimeoutMs =
+    levelTimeoutMs(
+      currentTest.selectedLevel
+    );
+
+  currentTest.preparationStartedAt = millis();
+
+  currentTest.preparationDelayMs = random(
+    MIN_PREPARATION_MS,
+    MAX_PREPARATION_MS + 1
+  );
+}
+
+// =====================================================
+// JUEGO FÍSICO
+// =====================================================
+
+void runRealGame() {
+  if (!currentTest.active) {
+    return;
+  }
+
+  /*
+   * Fase de preparación.
+   */
+  if (currentTest.preparing) {
+    /*
+     * No iniciar si algún botón está presionado.
+     */
+    if (anyButtonPressed()) {
+      currentTest.preparationStartedAt = millis();
+      return;
+    }
+
+    unsigned long preparationElapsed =
+      millis() -
+      currentTest.preparationStartedAt;
+
+    if (
+      preparationElapsed <
+      currentTest.preparationDelayMs
+    ) {
+      return;
+    }
+
+    currentTest.correctButton =
+      pickRandomLed();
+
+    showLed(
+      currentTest.correctButton,
+      true
+    );
+
+    /*
+     * El cronómetro comienza exactamente cuando
+     * se enciende el LED.
+     */
+    currentTest.startedAt = millis();
+
+    currentTest.preparing = false;
+    currentTest.ledActivated = true;
+
+    Serial.print("[JUEGO] LED encendido: ");
+    Serial.println(
+      currentTest.correctButton + 1
+    );
+
+    return;
+  }
+
+  if (!currentTest.ledActivated) {
+    return;
+  }
+
+  unsigned long elapsed =
+    millis() - currentTest.startedAt;
+
+  /*
+   * Tiempo agotado.
+   */
+  if (
+    elapsed >=
+    currentTest.expectedTimeoutMs
+  ) {
+    currentTest.timeout = true;
+    currentTest.success = false;
+
+    currentTest.reactionTimeMs =
+      currentTest.expectedTimeoutMs;
+
+    currentTest.pressedButton = -1;
+
+    Serial.println(
+      "[JUEGO] Tiempo agotado."
+    );
+
+    sendResult();
+    return;
+  }
+
+  /*
+   * Leer botón presionado.
+   */
+  int pressedButton = readPressedButton();
+
+  if (pressedButton < 0) {
+    return;
+  }
+
+  currentTest.pressedButton =
+    pressedButton;
+
+  currentTest.reactionTimeMs =
+    elapsed;
+
+  currentTest.success =
+    pressedButton ==
+    currentTest.correctButton;
+
+  currentTest.timeout = false;
+
+  if (currentTest.success) {
+    Serial.print(
+      "[JUEGO] Correcto. Tiempo: "
+    );
+
+    Serial.print(
+      currentTest.reactionTimeMs
+    );
+
+    Serial.println(" ms");
+  } else {
+    Serial.print(
+      "[JUEGO] Incorrecto. Presionaste: "
+    );
+
+    Serial.print(
+      currentTest.pressedButton + 1
+    );
+
+    Serial.print(
+      " | Debias presionar: "
+    );
+
+    Serial.println(
+      currentTest.correctButton + 1
+    );
+  }
+
+  sendResult();
+}
+
+// =====================================================
+// SIMULACIÓN
+// =====================================================
+
+void runSimulation() {
+  if (!currentTest.active) {
+    return;
+  }
+
+  if (currentTest.preparing) {
+    currentTest.correctButton =
+      random(0, 3);
+
+    currentTest.pressedButton =
+      currentTest.correctButton;
+
+    currentTest.startedAt = millis();
+
+    currentTest.simulationTargetMs =
+      simulationDelayMs(
+        currentTest.selectedLevel
+      );
+
+    currentTest.preparing = false;
+    currentTest.ledActivated = true;
+
+    Serial.print(
+      "[SIMULACION] Tiempo objetivo: "
+    );
+
+    Serial.print(
+      currentTest.simulationTargetMs
+    );
+
+    Serial.println(" ms");
+
+    return;
+  }
+
+  unsigned long elapsed =
+    millis() - currentTest.startedAt;
+
+  if (
+    elapsed <
+    currentTest.simulationTargetMs
+  ) {
+    return;
+  }
+
+  currentTest.reactionTimeMs =
+    currentTest.simulationTargetMs;
+
+  currentTest.timeout = false;
+  currentTest.success = true;
+
+  sendResult();
+}
+
+// =====================================================
+// ENVIAR RESULTADO
+// =====================================================
+
+void sendResult() {
   resetGameOutputs();
+
+  if (
+    !webSocket.isConnected() ||
+    !namespaceConnected
+  ) {
+    Serial.println(
+      "[ERROR] No se pudo enviar el resultado."
+    );
+
+    finishTest();
+    return;
+  }
+
+  String jsonPayload = "{";
+
+  jsonPayload += "\"deviceId\":\"";
+  jsonPayload += DEVICE_ID;
+  jsonPayload += "\",";
+
+  jsonPayload += "\"patientId\":\"";
+  jsonPayload += currentTest.patientId;
+  jsonPayload += "\",";
+
+  jsonPayload += "\"reactionTime\":";
+  jsonPayload += String(
+    currentTest.reactionTimeMs
+  );
+  jsonPayload += ",";
+
+  jsonPayload += "\"selectedLevel\":";
+  jsonPayload += String(
+    currentTest.selectedLevel
+  );
+  jsonPayload += ",";
+
+  jsonPayload += "\"success\":";
+  jsonPayload += (
+    currentTest.success
+      ? "true"
+      : "false"
+  );
+  jsonPayload += ",";
+
+  jsonPayload += "\"correctButton\":";
+  jsonPayload += String(
+    currentTest.correctButton
+  );
+  jsonPayload += ",";
+
+  jsonPayload += "\"pressedButton\":";
+  jsonPayload += String(
+    currentTest.pressedButton
+  );
+  jsonPayload += ",";
+
+  jsonPayload += "\"timeout\":";
+  jsonPayload += (
+    currentTest.timeout
+      ? "true"
+      : "false"
+  );
+  jsonPayload += ",";
+
+  jsonPayload += "\"timestamp\":";
+  jsonPayload += String(millis());
+
+  jsonPayload += "}";
+
+  String packet =
+    String("42") +
+    SOCKET_NAMESPACE +
+    ",[\"testFinished\"," +
+    jsonPayload +
+    "]";
+
+  sendPacket(packet);
+
+  Serial.println();
+  Serial.println(
+    "[JUEGO] Resultado enviado al backend."
+  );
+
+  Serial.println(jsonPayload);
+
+  finishTest();
 }
 
-// =========================
-// Hardware abstraction
-// =========================
+// =====================================================
+// FINALIZAR PRUEBA
+// =====================================================
 
-void applyLevel(int level) {
-  currentTest.selectedLevel = constrain(level, 1, 4);
-  currentTest.expectedTimeoutMs = levelTimeoutMs(currentTest.selectedLevel);
+void finishTest() {
+  currentTest.active = false;
+  currentTest.preparing = false;
+  currentTest.ledActivated = false;
+
+  currentTest.timeout = false;
+  currentTest.success = false;
+
+  currentTest.correctButton = -1;
+  currentTest.pressedButton = -1;
+
+  currentTest.preparationStartedAt = 0;
+  currentTest.preparationDelayMs = 0;
+
+  currentTest.startedAt = 0;
+  currentTest.reactionTimeMs = 0;
+  currentTest.simulationTargetMs = 0;
+
+  resetGameOutputs();
+
+  Serial.println(
+    "[JUEGO] Esperando otra prueba desde el backend..."
+  );
 }
 
-void resetGameOutputs() {
-  for (uint8_t i = 0; i < 3; ++i) {
-    digitalWrite(LED_PINS[i], LOW);
+// =====================================================
+// NIVELES
+// =====================================================
+
+unsigned long levelTimeoutMs(int level) {
+  switch (constrain(level, 1, 4)) {
+    case 1:
+      return 1500; // Fácil
+
+    case 2:
+      return 1000; // Medio
+
+    case 3:
+      return 500; // Difícil
+
+    case 4:
+      return 250; // Frenético
+
+    default:
+      return 1500;
   }
 }
 
-void showLed(uint8_t ledIndex, bool on) {
-  if (ledIndex > 2) return;
-  digitalWrite(LED_PINS[ledIndex], on ? HIGH : LOW);
+unsigned long simulationDelayMs(int level) {
+  switch (constrain(level, 1, 4)) {
+    case 1:
+      return random(650, 1200);
+
+    case 2:
+      return random(450, 850);
+
+    case 3:
+      return random(250, 450);
+
+    case 4:
+      return random(120, 230);
+
+    default:
+      return random(650, 1200);
+  }
+}
+
+// =====================================================
+// HARDWARE
+// =====================================================
+
+void resetGameOutputs() {
+  for (uint8_t i = 0; i < 3; i++) {
+    digitalWrite(
+      LED_PINS[i],
+      LOW
+    );
+  }
+}
+
+void resetTestContext() {
+  currentTest.patientId = "";
+  currentTest.selectedLevel = 1;
+
+  currentTest.active = false;
+  currentTest.preparing = false;
+  currentTest.ledActivated = false;
+
+  currentTest.timeout = false;
+  currentTest.success = false;
+
+  currentTest.correctButton = -1;
+  currentTest.pressedButton = -1;
+
+  currentTest.preparationStartedAt = 0;
+  currentTest.preparationDelayMs = 0;
+
+  currentTest.startedAt = 0;
+  currentTest.expectedTimeoutMs = 0;
+  currentTest.reactionTimeMs = 0;
+
+  currentTest.simulationTargetMs = 0;
+}
+
+void showLed(
+  uint8_t ledIndex,
+  bool state
+) {
+  if (ledIndex >= 3) {
+    return;
+  }
+
+  digitalWrite(
+    LED_PINS[ledIndex],
+    state ? HIGH : LOW
+  );
+}
+
+bool anyButtonPressed() {
+  for (uint8_t i = 0; i < 3; i++) {
+    if (
+      digitalRead(BUTTON_PINS[i]) == LOW
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 int readPressedButton() {
-  static unsigned long lastPressAt[3] = {0, 0, 0};
-  for (uint8_t i = 0; i < 3; ++i) {
-    if (digitalRead(BUTTON_PINS[i]) == LOW) {
-      unsigned long now = millis();
-      if (now - lastPressAt[i] > BUTTON_DEBOUNCE_MS) {
-        lastPressAt[i] = now;
-        return i;
-      }
+  static bool previousState[3] = {
+    HIGH,
+    HIGH,
+    HIGH
+  };
+
+  static unsigned long lastChangeAt[3] = {
+    0,
+    0,
+    0
+  };
+
+  unsigned long now = millis();
+
+  for (uint8_t i = 0; i < 3; i++) {
+    bool currentState =
+      digitalRead(BUTTON_PINS[i]);
+
+    /*
+     * Detectar transición HIGH -> LOW.
+     */
+    if (
+      previousState[i] == HIGH &&
+      currentState == LOW &&
+      now - lastChangeAt[i] >=
+        BUTTON_DEBOUNCE_MS
+    ) {
+      previousState[i] =
+        currentState;
+
+      lastChangeAt[i] = now;
+
+      return i;
+    }
+
+    if (
+      previousState[i] !=
+      currentState
+    ) {
+      previousState[i] =
+        currentState;
+
+      lastChangeAt[i] = now;
     }
   }
+
   return -1;
 }
 
@@ -476,22 +1145,122 @@ int pickRandomLed() {
   return random(0, 3);
 }
 
-unsigned long levelTimeoutMs(int level) {
-  switch (constrain(level, 1, 4)) {
-    case 1: return 6000;  // Fácil
-    case 2: return 4500;  // Medio
-    case 3: return 3000;  // Difícil
-    case 4: return 1800;  // Frenético
-    default: return 6000;
+// =====================================================
+// UTILIDADES
+// =====================================================
+
+String payloadToString(
+  uint8_t* payload,
+  size_t length
+) {
+  String message;
+  message.reserve(length + 1);
+
+  for (size_t i = 0; i < length; i++) {
+    message += static_cast<char>(
+      payload[i]
+    );
   }
+
+  return message;
 }
 
-unsigned long simulationDelayMs(int level) {
-  switch (constrain(level, 1, 4)) {
-    case 1: return random(650, 1600);
-    case 2: return random(450, 1300);
-    case 3: return random(300, 950);
-    case 4: return random(180, 700);
-    default: return random(650, 1600);
+String extractJsonString(
+  const String& json,
+  const String& key
+) {
+  String needle =
+    "\"" + key + "\"";
+
+  int start =
+    json.indexOf(needle);
+
+  if (start < 0) {
+    return "";
   }
+
+  start =
+    json.indexOf(':', start);
+
+  if (start < 0) {
+    return "";
+  }
+
+  int firstQuote =
+    json.indexOf('"', start + 1);
+
+  if (firstQuote < 0) {
+    return "";
+  }
+
+  int secondQuote =
+    json.indexOf('"', firstQuote + 1);
+
+  if (secondQuote < 0) {
+    return "";
+  }
+
+  return json.substring(
+    firstQuote + 1,
+    secondQuote
+  );
+}
+
+int extractJsonInt(
+  const String& json,
+  const String& key,
+  int defaultValue
+) {
+  String needle =
+    "\"" + key + "\"";
+
+  int start =
+    json.indexOf(needle);
+
+  if (start < 0) {
+    return defaultValue;
+  }
+
+  start =
+    json.indexOf(':', start);
+
+  if (start < 0) {
+    return defaultValue;
+  }
+
+  int numberStart =
+    start + 1;
+
+  while (
+    numberStart < json.length() &&
+    (
+      json[numberStart] == ' ' ||
+      json[numberStart] == '\t' ||
+      json[numberStart] == '"'
+    )
+  ) {
+    numberStart++;
+  }
+
+  int numberEnd =
+    numberStart;
+
+  while (
+    numberEnd < json.length() &&
+    (
+      isDigit(json[numberEnd]) ||
+      json[numberEnd] == '-'
+    )
+  ) {
+    numberEnd++;
+  }
+
+  if (numberEnd <= numberStart) {
+    return defaultValue;
+  }
+
+  return json.substring(
+    numberStart,
+    numberEnd
+  ).toInt();
 }
