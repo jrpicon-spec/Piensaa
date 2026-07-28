@@ -188,10 +188,20 @@ export class DeviceService {
     }
 
     const patientId = this.currentPatientId;
-    const measurement = await this.measurementsService.createFromDevice(
-      reactionTime,
+    if (!patientId) {
+      throw new BadRequestException(
+        'No hay un paciente seleccionado para registrar la medición. Usa /device/start-test primero.',
+      );
+    }
+    const measurement = await this.measurementsService.createFromDevice({
       patientId,
-    );
+      reactionTime,
+      selectedLevel: 1,
+      success: true,
+      correctButton: null,
+      pressedButton: null,
+      timeout: false,
+    });
     if (this.currentPatientId === patientId) this.currentPatientId = null;
     return measurement;
   }
@@ -202,7 +212,7 @@ export class DeviceService {
     const reactionTime = data.reactionTime ?? data.tiempo_reaccion;
     if (
       typeof reactionTime !== 'number' ||
-      !Number.isFinite(reactionTime) ||
+      !Number.isInteger(reactionTime) ||
       reactionTime <= 0 ||
       reactionTime > 60000
     ) {
@@ -220,27 +230,38 @@ export class DeviceService {
       throw new BadRequestException('selectedLevel debe estar entre 1 y 4');
     }
 
+    const timeout = data.timeout ?? false;
+    if (timeout && data.success === true) {
+      throw new BadRequestException(
+        'Una prueba finalizada por timeout no puede marcarse como exitosa',
+      );
+    }
+    this.assertButtonIndex(data.correctButton, 'correctButton');
+    this.assertButtonIndex(data.pressedButton, 'pressedButton');
+
     const normalized: NormalizedSocketTestResult = {
       deviceId: this.normalizeDeviceId(data.deviceId ?? this.activeDeviceId),
       patientId: data.patientId,
       reactionTime,
       selectedLevel,
-      success: data.success ?? !(data.timeout ?? false),
+      success: timeout ? false : (data.success ?? true),
       correctButton: data.correctButton ?? null,
-      pressedButton:
-        typeof data.pressedButton === 'number' && data.pressedButton >= 0
-          ? data.pressedButton
-          : null,
-      timeout: data.timeout ?? false,
+      pressedButton: data.pressedButton ?? null,
+      timeout,
       deviceTimestamp: data.timestamp ?? null,
       receivedAt: new Date().toISOString(),
     };
 
-    const measurement = await this.measurementsService.createFromDevice(
-      normalized.reactionTime,
-      normalized.patientId,
-      normalized.receivedAt,
-    );
+    const measurement = await this.measurementsService.createFromDevice({
+      patientId: normalized.patientId,
+      reactionTime: normalized.reactionTime,
+      selectedLevel: normalized.selectedLevel,
+      success: normalized.success,
+      correctButton: normalized.correctButton,
+      pressedButton: normalized.pressedButton,
+      timeout: normalized.timeout,
+    });
+    normalized.receivedAt = measurement.fecha;
     if (this.currentPatientId === normalized.patientId) {
       this.currentPatientId = null;
     }
@@ -423,6 +444,19 @@ export class DeviceService {
       throw new BadRequestException('deviceId es obligatorio');
     }
     return normalized;
+  }
+
+  private assertButtonIndex(
+    value: number | null | undefined,
+    field: 'correctButton' | 'pressedButton',
+  ): void {
+    if (
+      value !== undefined &&
+      value !== null &&
+      (!Number.isInteger(value) || value < 0 || value > 2)
+    ) {
+      throw new BadRequestException(`${field} debe ser un índice entre 0 y 2`);
+    }
   }
 
   private databaseIdFor(deviceId: string): string {

@@ -224,7 +224,7 @@ describe('DeviceGateway', () => {
         correctButton: 0,
         pressedButton: null,
         timeout: true,
-        deviceTimestamp: 14097,
+        deviceTimestamp: null,
         receivedAt: '2026-01-01T00:00:00Z',
       },
     });
@@ -237,9 +237,8 @@ describe('DeviceGateway', () => {
       selectedLevel: 1,
       success: false,
       correctButton: 0,
-      pressedButton: -1,
+      pressedButton: null,
       timeout: true,
-      timestamp: 14097,
     };
 
     const response = await gateway.handleTestFinished(body, client);
@@ -252,7 +251,7 @@ describe('DeviceGateway', () => {
           success: false,
           timeout: true,
           pressedButton: null,
-          deviceTimestamp: 14097,
+          deviceTimestamp: null,
         }),
       }),
     );

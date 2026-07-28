@@ -11,6 +11,7 @@ import {
   WsException,
 } from '@nestjs/websockets';
 import { JwtService } from '@nestjs/jwt';
+import type { ValidationError } from 'class-validator';
 import { Server, Socket } from 'socket.io';
 import { DeviceStatus } from '../common/enums/clinical.enum';
 import { DeviceService } from './device.service';
@@ -36,6 +37,15 @@ interface DeviceStatusPayload {
   updatedAt: string;
 }
 
+const socketValidationLogger = new Logger('DeviceSocketValidation');
+
+function validationMessages(errors: ValidationError[]): string[] {
+  return errors.flatMap((error) => [
+    ...Object.values(error.constraints ?? {}),
+    ...validationMessages(error.children ?? []),
+  ]);
+}
+
 @WebSocketGateway({
   namespace: '/device',
   path: '/socket.io',
@@ -48,6 +58,16 @@ interface DeviceStatusPayload {
     forbidNonWhitelisted: true,
     transform: true,
     transformOptions: { enableImplicitConversion: false },
+    exceptionFactory: (errors: ValidationError[]) => {
+      const messages = validationMessages(errors);
+      const message =
+        messages.length > 0
+          ? `Payload Socket.IO inválido: ${messages.join('; ')}`
+          : 'Payload Socket.IO inválido';
+      const dtoName = errors[0]?.target?.constructor?.name ?? 'DTO desconocido';
+      socketValidationLogger.error(`${dtoName}: ${message}`);
+      return new WsException({ status: 'error', message });
+    },
   }),
 )
 export class DeviceGateway

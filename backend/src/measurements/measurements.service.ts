@@ -21,6 +21,27 @@ import { UserRole } from '../common/enums/user-role.enum';
 const THRESHOLD_NORMAL = 350;
 const THRESHOLD_ATENCION = 500;
 
+export interface DeviceMeasurementData {
+  patientId: string;
+  reactionTime: number;
+  selectedLevel: number;
+  success: boolean;
+  correctButton: number | null;
+  pressedButton: number | null;
+  timeout: boolean;
+}
+
+interface MeasurementInsertRecord {
+  paciente_id: string;
+  tiempo_reaccion: number;
+  fecha: string;
+  nivel?: number;
+  exitoso?: boolean;
+  boton_correcto?: number | null;
+  boton_presionado?: number | null;
+  timeout?: boolean;
+}
+
 function classifyState(
   reactionTimeMs: number,
 ): 'normal' | 'atencion' | 'riesgo' {
@@ -42,8 +63,50 @@ export class MeasurementsService {
     dto: CreateMeasurementDto,
     currentUser: AuthenticatedUser,
   ): Promise<MeasurementResponse> {
+    return this.insertMeasurement(
+      {
+        paciente_id: dto.paciente_id,
+        tiempo_reaccion: dto.tiempo_reaccion,
+        fecha: dto.fecha ?? new Date().toISOString(),
+      },
+      currentUser,
+    );
+  }
+
+  async createFromDevice(
+    result: DeviceMeasurementData,
+  ): Promise<MeasurementResponse> {
+    const fakeUser: AuthenticatedUser = {
+      id: 'system',
+      authId: 'system',
+      email: 'system@reaccionvital.local',
+      nombre: 'Sistema ESP32',
+      rol: UserRole.ADMIN,
+    };
+
+    // Único límite de traducción entre el contrato camelCase del socket y las
+    // columnas snake_case de Supabase. La fecha nunca proviene del dispositivo.
+    return this.insertMeasurement(
+      {
+        paciente_id: result.patientId,
+        tiempo_reaccion: result.reactionTime,
+        nivel: result.selectedLevel,
+        exitoso: result.success,
+        boton_correcto: result.correctButton,
+        boton_presionado: result.pressedButton,
+        timeout: result.timeout,
+        fecha: new Date().toISOString(),
+      },
+      fakeUser,
+    );
+  }
+
+  private async insertMeasurement(
+    record: MeasurementInsertRecord,
+    currentUser: AuthenticatedUser,
+  ): Promise<MeasurementResponse> {
     await this.patientsService
-      .findOne(dto.paciente_id, currentUser)
+      .findOne(record.paciente_id, currentUser)
       .catch(() => {
         throw new BadRequestException(
           'El paciente seleccionado no existe o no tienes acceso',
@@ -51,14 +114,7 @@ export class MeasurementsService {
       });
 
     const admin = this.supabaseService.getAdminClient();
-    const fecha = dto.fecha ?? new Date().toISOString();
-    const estado = classifyState(dto.tiempo_reaccion);
-
-    const record: Record<string, unknown> = {
-      paciente_id: dto.paciente_id,
-      tiempo_reaccion: dto.tiempo_reaccion,
-      fecha,
-    };
+    const estado = classifyState(record.tiempo_reaccion);
 
     const { data, error } = await admin
       .from('mediciones')
@@ -68,6 +124,9 @@ export class MeasurementsService {
       .maybeSingle();
 
     if (error || !data) {
+      this.logger.error(
+        `Supabase rechazó la medición del paciente ${record.paciente_id}: ${this.supabaseErrorDetails(error)}`,
+      );
       throw new BadRequestException(
         `No se pudo registrar la medición: ${error?.message ?? 'sin datos devueltos'}`,
       );
@@ -78,7 +137,7 @@ export class MeasurementsService {
       estado,
     };
 
-    await this.syncPatientEstado(dto.paciente_id).catch(
+    await this.syncPatientEstado(record.paciente_id).catch(
       (syncError: unknown) => {
         this.logger.error(
           `Medición ${measurement.id} guardada, pero falló la sincronización del paciente: ${this.errorMessage(syncError)}`,
@@ -87,35 +146,6 @@ export class MeasurementsService {
     );
 
     return measurement;
-  }
-
-  async createFromDevice(
-    reactionTime: number,
-    patientId: string | null,
-    serverDate = new Date().toISOString(),
-  ): Promise<MeasurementResponse> {
-    if (!patientId) {
-      throw new BadRequestException(
-        'No hay un paciente seleccionado para registrar la medición. Usa /device/start-test primero.',
-      );
-    }
-
-    const fakeUser: AuthenticatedUser = {
-      id: 'system',
-      authId: 'system',
-      email: 'system@reaccionvital.local',
-      nombre: 'Sistema ESP32',
-      rol: UserRole.ADMIN,
-    };
-
-    return this.create(
-      {
-        paciente_id: patientId,
-        tiempo_reaccion: reactionTime,
-        fecha: serverDate,
-      },
-      fakeUser,
-    );
   }
 
   async findAll(
@@ -399,7 +429,36 @@ export class MeasurementsService {
         typeof row['estado'] === 'string'
           ? row['estado']
           : classifyState(tiempo),
+      nivel:
+        row['nivel'] === undefined || row['nivel'] === null
+          ? undefined
+          : Number(row['nivel']),
+      exitoso: typeof row['exitoso'] === 'boolean' ? row['exitoso'] : undefined,
+      boton_correcto:
+        row['boton_correcto'] === undefined
+          ? undefined
+          : row['boton_correcto'] === null
+            ? null
+            : Number(row['boton_correcto']),
+      boton_presionado:
+        row['boton_presionado'] === undefined
+          ? undefined
+          : row['boton_presionado'] === null
+            ? null
+            : Number(row['boton_presionado']),
+      timeout: typeof row['timeout'] === 'boolean' ? row['timeout'] : undefined,
     };
+  }
+
+  private supabaseErrorDetails(error: unknown): string {
+    if (!error || typeof error !== 'object') return this.errorMessage(error);
+    const value = error as Record<string, unknown>;
+    return JSON.stringify({
+      message: value['message'] ?? 'sin mensaje',
+      code: value['code'] ?? null,
+      details: value['details'] ?? null,
+      hint: value['hint'] ?? null,
+    });
   }
 
   private errorMessage(error: unknown): string {

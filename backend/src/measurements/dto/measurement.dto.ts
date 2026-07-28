@@ -45,4 +45,9 @@ export class MeasurementResponse {
   fecha!: string;
   created_at?: string;
   estado?: string;
+  nivel?: number;
+  exitoso?: boolean;
+  boton_correcto?: number | null;
+  boton_presionado?: number | null;
+  timeout?: boolean;
 }

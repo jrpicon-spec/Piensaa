@@ -22,7 +22,7 @@ describe('MeasurementsService', () => {
     expect(service).toBeDefined();
   });
 
-  it('inserts only real mediciones columns and generates the server date', async () => {
+  it('normalizes a timeout result to real columns and generates the server date', async () => {
     const insertQuery = {
       insert: jest.fn(),
       select: jest.fn(),
@@ -32,6 +32,11 @@ describe('MeasurementsService', () => {
           id: '9f71b73e-87d6-41d9-8710-d67db7321a36',
           paciente_id: '517a1365-b828-42ff-8c7b-c95323f08b1c',
           tiempo_reaccion: 1500,
+          nivel: 1,
+          exitoso: false,
+          boton_correcto: 2,
+          boton_presionado: null,
+          timeout: true,
           fecha: '2026-07-22T12:00:00.000Z',
         },
         error: null,
@@ -63,22 +68,33 @@ describe('MeasurementsService', () => {
       patients as unknown as PatientsService,
     );
 
-    const measurement = await testedService.createFromDevice(
-      1500,
-      '517a1365-b828-42ff-8c7b-c95323f08b1c',
-      '2026-07-22T12:00:00.000Z',
-    );
+    const measurement = await testedService.createFromDevice({
+      patientId: '517a1365-b828-42ff-8c7b-c95323f08b1c',
+      reactionTime: 1500,
+      selectedLevel: 1,
+      success: false,
+      correctButton: 2,
+      pressedButton: null,
+      timeout: true,
+    });
 
     expect(insertQuery.insert).toHaveBeenCalledWith({
       paciente_id: '517a1365-b828-42ff-8c7b-c95323f08b1c',
       tiempo_reaccion: 1500,
-      fecha: '2026-07-22T12:00:00.000Z',
+      nivel: 1,
+      exitoso: false,
+      boton_correcto: 2,
+      boton_presionado: null,
+      timeout: true,
+      fecha: expect.any(String),
     });
-    expect(insertQuery.insert).not.toHaveBeenCalledWith(
-      expect.objectContaining({ estado: expect.anything() }),
-    );
     expect(measurement).toEqual(
-      expect.objectContaining({ estado: 'riesgo', tiempo_reaccion: 1500 }),
+      expect.objectContaining({
+        estado: 'riesgo',
+        tiempo_reaccion: 1500,
+        timeout: true,
+        boton_presionado: null,
+      }),
     );
   });
 });

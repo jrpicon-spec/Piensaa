@@ -181,17 +181,42 @@ describe('Validación de DTO', () => {
     const dto = plainToInstance(TestFinishedSocketDto, {
       deviceId: 'esp32-reaccion-01',
       patientId: '517a1365-b828-42ff-8c7b-c95323f08b1c',
-      reactionTime: 1500,
+      reactionTime: 1800,
       selectedLevel: 1,
       success: false,
-      correctButton: 0,
-      pressedButton: -1,
+      correctButton: 2,
+      pressedButton: null,
       timeout: true,
-      timestamp: 14097,
     });
 
     await expect(validate(dto)).resolves.toHaveLength(0);
   });
+
+  it.each([0, 1, 2])(
+    'acepta correctButton con índice base cero: %i',
+    async (correctButton) => {
+      const dto = plainToInstance(TestFinishedSocketDto, {
+        patientId: '517a1365-b828-42ff-8c7b-c95323f08b1c',
+        reactionTime: 1500,
+        correctButton,
+      });
+
+      await expect(validate(dto)).resolves.toHaveLength(0);
+    },
+  );
+
+  it.each([-1, 3])(
+    'rechaza correctButton fuera del rango 0–2: %i',
+    async (correctButton) => {
+      const dto = plainToInstance(TestFinishedSocketDto, {
+        patientId: '517a1365-b828-42ff-8c7b-c95323f08b1c',
+        reactionTime: 1500,
+        correctButton,
+      });
+
+      await expect(validate(dto)).resolves.not.toHaveLength(0);
+    },
+  );
 
   it('limita la paginación de mediciones a 100 registros', async () => {
     const valid = plainToInstance(FilterMeasurementDto, { limit: 100 });

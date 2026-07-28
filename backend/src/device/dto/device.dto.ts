@@ -156,9 +156,9 @@ export class TestFinishedSocketDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(-1)
+  @Min(0)
   @Max(2)
-  pressedButton?: number;
+  pressedButton?: number | null;
 
   @IsOptional()
   @IsBoolean()

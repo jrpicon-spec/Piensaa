@@ -164,10 +164,9 @@ describe('DeviceService', () => {
       reactionTime: 1500,
       selectedLevel: 1,
       success: false,
-      correctButton: 0,
-      pressedButton: -1,
+      correctButton: 2,
+      pressedButton: null,
       timeout: true,
-      timestamp: 14097,
     });
 
     expect(saved.result).toEqual(
@@ -175,14 +174,41 @@ describe('DeviceService', () => {
         success: false,
         timeout: true,
         pressedButton: null,
-        deviceTimestamp: 14097,
+        deviceTimestamp: null,
       }),
     );
-    expect(saved.result.receivedAt).not.toBe(new Date(14097).toISOString());
-    expect(measurements.createFromDevice).toHaveBeenCalledWith(
-      1500,
-      '517a1365-b828-42ff-8c7b-c95323f08b1c',
-      saved.result.receivedAt,
+    expect(measurements.createFromDevice).toHaveBeenCalledWith({
+      patientId: '517a1365-b828-42ff-8c7b-c95323f08b1c',
+      reactionTime: 1500,
+      selectedLevel: 1,
+      success: false,
+      correctButton: 2,
+      pressedButton: null,
+      timeout: true,
+    });
+  });
+
+  it('rejects a timeout result marked as successful', async () => {
+    const measurements = { createFromDevice: jest.fn() };
+    const service = new DeviceService(
+      {} as SupabaseService,
+      {} as PatientsService,
+      measurements as unknown as MeasurementsService,
     );
+
+    await expect(
+      service.receiveSocketResult({
+        patientId: '517a1365-b828-42ff-8c7b-c95323f08b1c',
+        reactionTime: 1500,
+        selectedLevel: 1,
+        success: true,
+        correctButton: 2,
+        pressedButton: null,
+        timeout: true,
+      }),
+    ).rejects.toThrow(
+      'Una prueba finalizada por timeout no puede marcarse como exitosa',
+    );
+    expect(measurements.createFromDevice).not.toHaveBeenCalled();
   });
 });
