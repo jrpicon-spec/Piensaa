@@ -270,36 +270,57 @@ export function PatientDetailsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden rounded-2xl border border-border bg-white shadow-card"
       >
-        <div className={cn('h-24 w-full', `bg-gradient-to-r ${patient.status === 'normal' ? 'from-emerald-400 to-sky-500' : patient.status === 'atencion' ? 'from-amber-400 to-amber-600' : 'from-rose-400 to-rose-600'}`)} />
-        <div className="px-6 pb-6 -mt-12">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+        <div
+          className={cn(
+            'h-24 w-full rounded-t-2xl',
+            `bg-gradient-to-r ${
+              patient.status === 'normal'
+                ? 'from-emerald-400 to-sky-500'
+                : patient.status === 'atencion'
+                  ? 'from-amber-400 to-amber-600'
+                  : 'from-rose-400 to-rose-600'
+            }`,
+          )}
+        />
+        <div className="bg-white px-6 pb-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+            <div className="-mt-7 shrink-0">
               <Avatar className="h-24 w-24 ring-4 ring-white shadow-strong">
                 <AvatarImage src={patient.photo ?? generateAvatarUrl(patient.fullName)} alt={patient.fullName} />
                 <AvatarFallback className="text-xl">{getInitials(patient.fullName)}</AvatarFallback>
               </Avatar>
-              <div className="pb-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl font-semibold tracking-tight text-foreground">{patient.fullName}</h1>
-                  <Badge variant={patient.status === 'normal' ? 'success' : patient.status === 'atencion' ? 'warning' : 'danger'}>
-                    <span className={cn('h-1.5 w-1.5 rounded-full mr-1', colors.dot)} />
-                    {colors.label}
-                  </Badge>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {age} años · {patient.gender} · ID: {patient.id}
-                </p>
-              </div>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline">
-                <Pencil className="h-4 w-4" />
-                Editar
-              </Button>
-              <Button variant="outline" onClick={handleStartTest}>
-                <HeartPulse className="h-4 w-4" />
-                Iniciar prueba
-              </Button>
+
+            <div className="min-w-0 flex-1 sm:pt-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <h1 className="text-2xl font-semibold tracking-tight text-foreground">{patient.fullName}</h1>
+                    <Badge
+                      variant={
+                        patient.status === 'normal' ? 'success' : patient.status === 'atencion' ? 'warning' : 'danger'
+                      }
+                    >
+                      <span className={cn('mr-1 h-1.5 w-1.5 rounded-full', colors.dot)} />
+                      {colors.label}
+                    </Badge>
+                  </div>
+                  <p className="mt-1.5 text-sm text-muted-foreground">
+                    {age} años · {patient.gender} · ID: {patient.id}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <Button variant="outline">
+                    <Pencil className="h-4 w-4" />
+                    Editar
+                  </Button>
+                  <Button variant="outline" onClick={handleStartTest}>
+                    <HeartPulse className="h-4 w-4" />
+                    Iniciar prueba
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
