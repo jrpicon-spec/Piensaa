@@ -31,7 +31,7 @@ import type { PatientStatus } from '@/types';
 export function PatientsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { success } = useToast();
+  const { success, error: showError } = useToast();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
   const [search, setSearch] = useState('');
@@ -114,10 +114,17 @@ export function PatientsPage() {
 
   const handleDelete = async () => {
     if (!patientToDelete) return;
-    await patientsService.remove(patientToDelete.id);
-    setPatients((current) => current.filter((p) => p.id !== patientToDelete.id));
-    success('Paciente eliminado', `${patientToDelete.fullName} fue removido del sistema`);
-    setPatientToDelete(null);
+    try {
+      await patientsService.remove(patientToDelete.id);
+      setPatients((current) => current.filter((p) => p.id !== patientToDelete.id));
+      success('Paciente eliminado', `${patientToDelete.fullName} fue removido del sistema`);
+      setPatientToDelete(null);
+    } catch (err) {
+      showError(
+        'No se pudo eliminar el paciente',
+        err instanceof Error ? err.message : 'Ocurrió un error al eliminar el paciente.',
+      );
+    }
   };
 
   if (loading) return <div className="p-6">Cargando...</div>;

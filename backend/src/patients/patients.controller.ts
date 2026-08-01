@@ -60,7 +60,7 @@ export class PatientsController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.CUIDADOR)
   @HttpCode(HttpStatus.OK)
   remove(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
