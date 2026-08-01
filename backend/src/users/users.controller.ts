@@ -50,6 +50,7 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   remove(
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,

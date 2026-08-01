@@ -3,6 +3,8 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -32,6 +34,8 @@ export interface PaginatedResult<T> {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(private readonly supabaseService: SupabaseService) {}
 
   async findAll(filter: FilterUserDto): Promise<PaginatedResult<ManagedUser>> {
@@ -227,25 +231,189 @@ export class UsersService {
     id: string,
     currentUser: AuthenticatedUser,
   ): Promise<{ id: string; deleted: boolean }> {
+    this.logger.log(
+      `[DELETE USER] target=${id} requestedBy=${currentUser.id} requesterRole=${currentUser.rol}`,
+    );
+
+    if (currentUser.rol !== UserRole.ADMIN) {
+      this.logger.warn(
+        `[DELETE USER] denied target=${id} requestedBy=${currentUser.id} reason=non_admin`,
+      );
+      throw new ForbiddenException(
+        'Solo un administrador puede eliminar usuarios.',
+      );
+    }
+
     if (id === currentUser.id) {
-      throw new ForbiddenException('No puede eliminar su propia cuenta.');
+      this.logger.warn(
+        `[DELETE USER] denied target=${id} requestedBy=${currentUser.id} reason=self_delete`,
+      );
+      throw new ConflictException('No puedes eliminar tu propia cuenta.');
     }
+
     const existing = await this.findOne(id);
-    if (existing.rol === UserRole.ADMIN) {
-      await this.ensureAnotherActiveAdmin(id);
-    } else if (existing.patientsCount > 0) {
+    const [activeAdminCount, assignedPatientCount] = await Promise.all([
+      this.countActiveAdmins(),
+      this.countAssignedPatients(id),
+    ]);
+
+    this.logger.log(
+      `[DELETE USER] target=${id} targetRole=${existing.rol} targetStatus=${existing.estado} activeAdmins=${activeAdminCount} assignedPatients=${assignedPatientCount}`,
+    );
+
+    if (
+      existing.rol === UserRole.ADMIN &&
+      existing.estado !== 'inactivo' &&
+      activeAdminCount <= 1
+    ) {
       throw new ConflictException(
-        'Reasigne los pacientes antes de eliminar este cuidador.',
+        'No se puede eliminar el último administrador del sistema.',
       );
     }
+
+    if (existing.rol === UserRole.CUIDADOR && assignedPatientCount > 0) {
+      throw new ConflictException(
+        'No se puede eliminar el cuidador porque tiene pacientes asignados. Reasígnalos primero.',
+      );
+    }
+
     const admin = this.supabaseService.getAdminClient();
-    const { error } = await admin.auth.admin.deleteUser(id);
-    if (error) {
-      throw new BadRequestException(
-        `No se pudo eliminar el usuario de Auth: ${error.message}`,
+
+    const { data: authData, error: authLookupError } =
+      await admin.auth.admin.getUserById(id);
+    if (authLookupError || !authData.user) {
+      this.logSupabaseError(
+        'auth_lookup_failed',
+        id,
+        authLookupError ?? new Error('Usuario no encontrado en Supabase Auth'),
+      );
+      throw new ConflictException(
+        'No se pudo eliminar el usuario porque su cuenta de autenticación no existe.',
       );
     }
+
+    const profileSnapshot: Record<string, unknown> = {
+      id: existing.id,
+      nombre: existing.nombre,
+      email: existing.email,
+      rol: existing.rol,
+      telefono: existing.telefono ?? null,
+      estado: existing.estado,
+    };
+    if (existing.createdAt) {
+      profileSnapshot['created_at'] = existing.createdAt;
+    }
+
+    const { data: deletedProfile, error: profileError } = await admin
+      .from('profiles')
+      .delete()
+      .eq('id', id)
+      .select('id')
+      .maybeSingle();
+
+    if (profileError) {
+      this.logSupabaseError('profile_delete_failed', id, profileError);
+      this.throwDeletionError(profileError);
+    }
+    if (!deletedProfile) {
+      throw new NotFoundException(`Usuario con id "${id}" no encontrado`);
+    }
+
+    const { error: authDeleteError } = await admin.auth.admin.deleteUser(id);
+    if (authDeleteError) {
+      this.logSupabaseError('auth_delete_failed', id, authDeleteError);
+
+      const { error: restoreError } = await admin
+        .from('profiles')
+        .upsert(profileSnapshot, { onConflict: 'id' });
+      if (restoreError) {
+        this.logSupabaseError('profile_restore_failed', id, restoreError);
+        throw new InternalServerErrorException(
+          'No se pudo eliminar el usuario.',
+        );
+      }
+
+      this.logger.warn(
+        `[DELETE USER] compensation=profile_restored target=${id}`,
+      );
+      this.throwDeletionError(authDeleteError);
+    }
+
+    this.logger.log(`[DELETE USER] completed target=${id}`);
     return { id, deleted: true };
+  }
+
+  private async countActiveAdmins(): Promise<number> {
+    const admin = this.supabaseService.getAdminClient();
+    const { count, error } = await admin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('rol', UserRole.ADMIN)
+      .or('estado.eq.activo,estado.is.null');
+
+    if (error) {
+      this.logSupabaseError('active_admin_count_failed', undefined, error);
+      throw new InternalServerErrorException(
+        'No se pudo validar la cantidad de administradores activos.',
+      );
+    }
+    return count ?? 0;
+  }
+
+  private async countAssignedPatients(caregiverId: string): Promise<number> {
+    const admin = this.supabaseService.getAdminClient();
+    const { count, error } = await admin
+      .from('pacientes')
+      .select('id', { count: 'exact', head: true })
+      .eq('cuidador_id', caregiverId);
+
+    if (error) {
+      this.logSupabaseError('patient_count_failed', caregiverId, error);
+      throw new InternalServerErrorException(
+        'No se pudo validar si el usuario tiene pacientes asignados.',
+      );
+    }
+    return count ?? 0;
+  }
+
+  private throwDeletionError(error: unknown): never {
+    if (this.getErrorCode(error) === '23503') {
+      throw new ConflictException(
+        'No se puede eliminar este usuario porque tiene registros relacionados.',
+      );
+    }
+    throw new InternalServerErrorException('No se pudo eliminar el usuario.');
+  }
+
+  private getErrorCode(error: unknown): string | undefined {
+    if (!error || typeof error !== 'object') return undefined;
+    const value = (error as Record<string, unknown>)['code'];
+    return typeof value === 'string' ? value : undefined;
+  }
+
+  private logSupabaseError(
+    operation: string,
+    targetId: string | undefined,
+    error: unknown,
+  ): void {
+    const source =
+      error && typeof error === 'object'
+        ? (error as Record<string, unknown>)
+        : {};
+    const details = {
+      name: source['name'],
+      message:
+        source['message'] ??
+        (error instanceof Error ? error.message : String(error)),
+      code: source['code'],
+      status: source['status'],
+      details: source['details'],
+      hint: source['hint'],
+      cause: source['cause'],
+    };
+    this.logger.error(
+      `[DELETE USER] operation=${operation} target=${targetId ?? 'n/a'} postgresCode=${this.getErrorCode(error) ?? 'n/a'} supabaseError=${JSON.stringify(details)}`,
+    );
   }
 
   private async ensureAnotherActiveAdmin(excludedId: string): Promise<void> {

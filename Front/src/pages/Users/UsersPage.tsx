@@ -68,7 +68,10 @@ export function UsersPage() {
       success('Usuario eliminado', `${toDelete.name} fue removido del sistema.`);
       setToDelete(null);
     } catch (err) {
-      showError('No se pudo eliminar', err instanceof Error ? err.message : 'La operación fue rechazada.');
+      showError(
+        'No se pudo eliminar el usuario',
+        err instanceof Error ? err.message : 'No se pudo eliminar el usuario.',
+      );
     }
   }
 
@@ -134,7 +137,7 @@ export function UsersPage() {
           <DialogHeader>
             <DialogTitle>Eliminar usuario</DialogTitle>
             <DialogDescription>
-              ¿Confirma que desea eliminar a <strong>{toDelete?.name}</strong>?
+              ¿Seguro que deseas eliminar a <strong>{toDelete?.name}</strong>?
               {toDelete?.role === 'cuidador' && (toDelete.patientsCount ?? 0) > 0 &&
                 ' Primero deberá reasignar sus pacientes.'}
             </DialogDescription>
