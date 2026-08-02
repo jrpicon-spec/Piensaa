@@ -186,6 +186,69 @@
   display: block;
 }
 
+.pdf-export-mode {
+  --color-background: #ffffff;
+  --color-foreground: #1e293b;
+  --color-card: #ffffff;
+  --color-card-foreground: #1e293b;
+  --color-muted-foreground: #64748b;
+  --color-border: #e2e8f0;
+  --color-primary: #c62828;
+  --color-red-50: #fef2f2;
+  --color-red-200: #fecaca;
+  --color-red-500: #ef4444;
+  --color-emerald-50: #ecfdf5;
+  --color-emerald-100: #d1fae5;
+  --color-emerald-200: #a7f3d0;
+  --color-emerald-500: #10b981;
+  --color-emerald-700: #047857;
+  --color-amber-50: #fffbeb;
+  --color-amber-100: #fef3c7;
+  --color-amber-200: #fde68a;
+  --color-amber-500: #f59e0b;
+  --color-amber-700: #b45309;
+  --color-rose-50: #fff1f2;
+  --color-rose-100: #ffe4e6;
+  --color-rose-200: #fecdd3;
+  --color-rose-500: #f43f5e;
+  --color-rose-600: #e11d48;
+  --color-rose-700: #be123c;
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  color: #1e293b;
+  background-color: #ffffff;
+}
+
+.pdf-export-mode .text-slate-500 { color: #64748b !important; }
+.pdf-export-mode .text-slate-700 { color: #334155 !important; }
+.pdf-export-mode .text-slate-800 { color: #1e293b !important; }
+.pdf-export-mode .text-slate-900 { color: #0f172a !important; }
+.pdf-export-mode .text-emerald-700 { color: #047857 !important; }
+.pdf-export-mode .text-amber-700 { color: #b45309 !important; }
+.pdf-export-mode .text-rose-600 { color: #e11d48 !important; }
+.pdf-export-mode .text-rose-700 { color: #be123c !important; }
+.pdf-export-mode .bg-slate-50 { background-color: #f8fafc !important; }
+.pdf-export-mode .bg-red-50 { background-color: #fef2f2 !important; }
+.pdf-export-mode .bg-emerald-50 { background-color: #ecfdf5 !important; }
+.pdf-export-mode .bg-amber-50 { background-color: #fffbeb !important; }
+.pdf-export-mode .bg-rose-50 { background-color: #fff1f2 !important; }
+.pdf-export-mode .bg-emerald-500 { background-color: #10b981 !important; }
+.pdf-export-mode .bg-amber-500 { background-color: #f59e0b !important; }
+.pdf-export-mode .bg-rose-500 { background-color: #f43f5e !important; }
+.pdf-export-mode .border-slate-200 { border-color: #e2e8f0 !important; }
+.pdf-export-mode .border-slate-300 { border-color: #cbd5e1 !important; }
+.pdf-export-mode .border-emerald-200 { border-color: #a7f3d0 !important; }
+.pdf-export-mode .border-amber-200 { border-color: #fde68a !important; }
+.pdf-export-mode .border-rose-200 { border-color: #fecdd3 !important; }
+
 @media print {
   @page {
     size: A4 landscape;

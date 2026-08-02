@@ -217,7 +217,17 @@ export function ReportsPage() {
       );
     } catch (exportError) {
       console.error('[ReportsPage] No se pudo generar el PDF.', exportError);
-      error('No se pudo generar el PDF.', 'Intente nuevamente en unos momentos.');
+      const errorMessage =
+        exportError instanceof Error ? exportError.message : String(exportError);
+      const hasIncompatibleColor = /(?:unsupported color|oklch|oklab|color-mix)/i.test(
+        errorMessage,
+      );
+      error(
+        hasIncompatibleColor
+          ? 'No se pudo generar el PDF porque algunos estilos no son compatibles.'
+          : 'No se pudo generar el PDF.',
+        'Intente nuevamente en unos momentos.',
+      );
     } finally {
       reportRef.current?.classList.remove('report-exporting');
       setIsExporting(false);
@@ -328,6 +338,7 @@ export function ReportsPage() {
       <section
         id="refleact-report-content"
         ref={reportRef}
+        data-pdf-report
         className="report-export-area space-y-6 bg-white"
         aria-label="Contenido del reporte"
       >
