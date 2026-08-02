@@ -203,8 +203,8 @@ export function PatientDetailsPage() {
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-semibold text-foreground">Prueba de Tiempo de Reacción</h2>
-              <Badge variant={isEsp32Connected ? 'success' : 'danger'}>
-                <span className={cn('h-1.5 w-1.5 rounded-full mr-1', isEsp32Connected ? 'bg-emerald-500' : 'bg-rose-500')} />
+              <Badge variant={isEsp32Connected ? 'success' : 'muted'}>
+                <span className={cn('h-1.5 w-1.5 rounded-full mr-1', isEsp32Connected ? 'bg-[#2E7D32]' : 'bg-slate-400')} />
                 {isEsp32Connected ? 'ESP32 conectado' : 'ESP32 desconectado'}
               </Badge>
             </div>
@@ -270,28 +270,17 @@ export function PatientDetailsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden rounded-2xl border border-border bg-white shadow-card"
       >
-        <div
-          className={cn(
-            'h-24 w-full rounded-t-2xl',
-            `bg-gradient-to-r ${
-              patient.status === 'normal'
-                ? 'from-emerald-400 to-sky-500'
-                : patient.status === 'atencion'
-                  ? 'from-amber-400 to-amber-600'
-                  : 'from-rose-400 to-rose-600'
-            }`,
-          )}
-        />
-        <div className="bg-white px-6 pb-6">
+        <div className="h-1 w-full bg-primary" />
+        <div className="bg-white px-6 py-5">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-            <div className="-mt-7 shrink-0">
+            <div className="shrink-0">
               <Avatar className="h-24 w-24 ring-4 ring-white shadow-strong">
                 <AvatarImage src={patient.photo ?? generateAvatarUrl(patient.fullName)} alt={patient.fullName} />
                 <AvatarFallback className="text-xl">{getInitials(patient.fullName)}</AvatarFallback>
               </Avatar>
             </div>
 
-            <div className="min-w-0 flex-1 sm:pt-6">
+            <div className="min-w-0 flex-1">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

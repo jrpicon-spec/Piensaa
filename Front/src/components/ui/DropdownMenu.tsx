@@ -17,7 +17,7 @@ export const DropdownMenuSubTrigger = forwardRef<
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
     className={cn(
-      'flex cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none focus:bg-sky-50 data-[state=open]:bg-sky-50',
+      'flex cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none focus:bg-red-50 data-[state=open]:bg-red-50',
       inset && 'pl-8',
       className,
     )}
@@ -71,7 +71,7 @@ export const DropdownMenuItem = forwardRef<
     ref={ref}
     className={cn(
       'relative flex cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none transition-colors',
-      'focus:bg-sky-50 focus:text-sky-900',
+      'focus:bg-red-50 focus:text-slate-900',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       inset && 'pl-8',
       destructive && 'text-rose-600 focus:bg-rose-50 focus:text-rose-700',
@@ -89,7 +89,7 @@ export const DropdownMenuCheckboxItem = forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-sky-50',
+      'relative flex cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-red-50',
       className,
     )}
     checked={checked}
@@ -112,7 +112,7 @@ export const DropdownMenuRadioItem = forwardRef<
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-sky-50',
+      'relative flex cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-red-50',
       className,
     )}
     {...props}

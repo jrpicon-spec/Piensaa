@@ -19,11 +19,11 @@ const iconForType = {
 } as const;
 
 const colorForType = {
-  evaluation: 'bg-sky-100 text-sky-600',
-  patient: 'bg-emerald-100 text-emerald-600',
-  caregiver: 'bg-violet-100 text-violet-600',
-  device: 'bg-amber-100 text-amber-600',
-  alert: 'bg-rose-100 text-rose-600',
+  evaluation: 'bg-red-50 text-primary',
+  patient: 'bg-slate-100 text-slate-600',
+  caregiver: 'bg-blue-50 text-[#2563EB]',
+  device: 'bg-slate-100 text-slate-600',
+  alert: 'bg-red-50 text-[#D32F2F]',
 };
 
 interface ActivityCardProps {
@@ -34,7 +34,7 @@ interface ActivityCardProps {
 export function ActivityCard({ items, limit = 8 }: ActivityCardProps) {
   const data = items.slice(0, limit);
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-card h-full flex flex-col">
+    <div className="flex h-full flex-col rounded-lg border border-border bg-card p-4 shadow-card">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-base font-semibold text-foreground">Actividad reciente</h3>

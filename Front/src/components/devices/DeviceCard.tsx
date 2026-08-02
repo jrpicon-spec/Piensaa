@@ -29,9 +29,9 @@ interface DeviceCardProps {
 }
 
 const protocolColors: Record<string, string> = {
-  'API REST': 'bg-sky-100 text-sky-700 border-sky-200',
-  WebSocket: 'bg-violet-100 text-violet-700 border-violet-200',
-  MQTT: 'bg-amber-100 text-amber-700 border-amber-200',
+  'API REST': 'bg-blue-50 text-[#2563EB] border-blue-200',
+  WebSocket: 'bg-slate-100 text-slate-600 border-slate-200',
+  MQTT: 'bg-slate-100 text-slate-600 border-slate-200',
 };
 
 export function DeviceCard({ device, index = 0, onConnect, onTest, onConfigure }: DeviceCardProps) {
@@ -44,21 +44,20 @@ export function DeviceCard({ device, index = 0, onConnect, onTest, onConfigure }
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
+      transition={{ delay: index * 0.02, duration: 0.18 }}
       className={cn(
-        'group relative overflow-hidden rounded-2xl border bg-white p-5 shadow-card hover:shadow-elevated transition-all',
-        isConnected ? 'border-emerald-200' : 'border-rose-200',
+        'group relative overflow-hidden rounded-lg border border-border bg-white p-4 shadow-card transition-colors duration-200 hover:border-slate-300',
       )}
     >
       {/* Status bar */}
-      <div className={cn('absolute top-0 left-0 right-0 h-1', isConnected ? 'bg-emerald-500' : 'bg-rose-500')} />
+      <div className={cn('absolute top-0 left-0 right-0 h-[3px]', isConnected ? 'bg-[#2E7D32]' : 'bg-slate-400')} />
 
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div
             className={cn(
-              'flex h-12 w-12 items-center justify-center rounded-xl text-white shadow-elevated ring-4',
-              isConnected ? 'bg-emerald-500 ring-emerald-100' : 'bg-rose-500 ring-rose-100',
+              'flex h-10 w-10 items-center justify-center rounded-lg',
+              isConnected ? 'bg-green-50 text-[#2E7D32]' : 'bg-slate-100 text-slate-500',
             )}
           >
             <Cpu className="h-5 w-5" />

@@ -151,26 +151,26 @@ export function PatientsPage() {
       {/* Stats summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total', value: counts.total, color: 'bg-sky-50 text-sky-700 border-sky-200' },
-          { label: 'Normal', value: counts.normal, color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-          { label: 'Atención', value: counts.atencion, color: 'bg-amber-50 text-amber-700 border-amber-200' },
-          { label: 'Riesgo', value: counts.riesgo, color: 'bg-rose-50 text-rose-700 border-rose-200' },
+          { label: 'Total', value: counts.total, dot: 'bg-[#C62828]' },
+          { label: 'Normal', value: counts.normal, dot: 'bg-[#2E7D32]' },
+          { label: 'Atención', value: counts.atencion, dot: 'bg-[#F9A825]' },
+          { label: 'Riesgo', value: counts.riesgo, dot: 'bg-[#D32F2F]' },
         ].map((stat, idx) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.05 }}
-            className={`rounded-xl border p-3 ${stat.color}`}
+            className="rounded-lg border border-border bg-white p-3 text-foreground shadow-card"
           >
-            <p className="text-xs font-medium opacity-80">{stat.label}</p>
+            <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><span className={`h-1.5 w-1.5 rounded-full ${stat.dot}`} />{stat.label}</p>
             <p className="mt-1 text-2xl font-semibold">{stat.value}</p>
           </motion.div>
         ))}
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center rounded-2xl border border-border bg-white p-3 shadow-card">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center rounded-lg border border-border bg-white p-3 shadow-card">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -188,9 +188,9 @@ export function PatientsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="normal">🟢 Normal</SelectItem>
-              <SelectItem value="atencion">🟡 Atención</SelectItem>
-              <SelectItem value="riesgo">🔴 Riesgo</SelectItem>
+              <SelectItem value="normal">Normal</SelectItem>
+              <SelectItem value="atencion">Atención</SelectItem>
+              <SelectItem value="riesgo">Riesgo</SelectItem>
             </SelectContent>
           </Select>
           <Select value={caregiverFilter} onValueChange={setCaregiverFilter}>

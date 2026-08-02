@@ -10,10 +10,10 @@ const badgeVariants = cva(
         default: 'border-transparent bg-primary text-primary-foreground',
         secondary: 'border-transparent bg-secondary text-secondary-foreground',
         outline: 'text-foreground border-border',
-        success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-        warning: 'border-amber-200 bg-amber-50 text-amber-700',
-        danger: 'border-rose-200 bg-rose-50 text-rose-700',
-        info: 'border-sky-200 bg-sky-50 text-sky-700',
+        success: 'border-green-200 bg-green-50 text-[#2E7D32]',
+        warning: 'border-amber-200 bg-amber-50 text-amber-800',
+        danger: 'border-red-200 bg-red-50 text-[#D32F2F]',
+        info: 'border-blue-200 bg-blue-50 text-[#2563EB]',
         muted: 'border-transparent bg-slate-100 text-slate-600',
       },
     },
@@ -31,10 +31,10 @@ export function Badge({ className, variant, ...props }: BadgeProps) {
 
 export function StatusDot({ variant }: { variant: 'success' | 'warning' | 'danger' | 'info' }) {
   const colors = {
-    success: 'bg-emerald-500',
+    success: 'bg-[#2E7D32]',
     warning: 'bg-amber-500',
-    danger: 'bg-rose-500',
-    info: 'bg-sky-500',
+    danger: 'bg-[#D32F2F]',
+    info: 'bg-[#2563EB]',
   } as const;
   return (
     <span className="relative flex h-2.5 w-2.5">

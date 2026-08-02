@@ -112,9 +112,8 @@ export function ProfilePage() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl border border-border bg-gradient-to-br from-sky-500 via-sky-500 to-emerald-500 p-6 sm:p-8 text-white shadow-elevated relative overflow-hidden"
+        className="relative overflow-hidden rounded-lg border border-border border-t-4 border-t-[#C62828] bg-white p-5 shadow-card sm:p-6"
       >
-        <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
         <div className="relative flex flex-col sm:flex-row items-center sm:items-end gap-5">
           <div className="relative">
             <Avatar className="h-24 w-24 ring-4 ring-white shadow-strong">
@@ -123,17 +122,17 @@ export function ProfilePage() {
             </Avatar>
             <button
               type="button"
-              className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-white text-sky-700 shadow-elevated hover:bg-slate-50 transition"
+              className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border border-red-200 bg-white text-primary shadow-card transition hover:bg-red-50"
               aria-label="Cambiar foto"
             >
               <Camera className="h-4 w-4" />
             </button>
           </div>
           <div className="flex-1 text-center sm:text-left">
-            <h2 className="text-2xl font-semibold">{user.name}</h2>
-            <p className="text-white/85">{user.email}</p>
+            <h2 className="text-2xl font-semibold text-foreground">{user.name}</h2>
+            <p className="text-muted-foreground">{user.email}</p>
             <div className="mt-3 flex flex-wrap items-center gap-2 justify-center sm:justify-start">
-              <Badge variant="secondary" className="bg-white/15 text-white border-white/20">
+              <Badge variant={user.role === 'admin' ? 'danger' : 'info'}>
                 {user.role === 'admin' ? (
                   <>
                     <ShieldCheck className="h-3 w-3" /> Administrador
@@ -144,7 +143,7 @@ export function ProfilePage() {
                   </>
                 )}
               </Badge>
-              <Badge variant="secondary" className="bg-white/15 text-white border-white/20">
+              <Badge variant="secondary" className="border-slate-200 bg-slate-50 text-slate-600">
                 Miembro desde {formatDate(user.createdAt)}
               </Badge>
             </div>

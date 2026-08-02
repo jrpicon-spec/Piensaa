@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Input, Flex, Space } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
+import { Search as SearchOutlined } from 'lucide-react';
 
 interface DataTableToolbarProps {
   searchValue?: string;
@@ -25,7 +25,7 @@ export function DataTableToolbar({
             allowClear
             aria-label={searchPlaceholder}
             className="rv-table-toolbar__search"
-            prefix={<SearchOutlined />}
+            prefix={<SearchOutlined size={16} />}
             placeholder={searchPlaceholder}
             value={searchValue}
             onChange={(event) => onSearchChange(event.target.value)}

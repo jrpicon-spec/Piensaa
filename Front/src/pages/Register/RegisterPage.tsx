@@ -124,27 +124,27 @@ export function RegisterPage() {
   ];
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
+    <div className="min-h-screen grid lg:grid-cols-2 bg-[#F8FAFC]">
       {/* Left panel - branding */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6 }}
-        className="relative hidden lg:flex flex-col justify-between overflow-hidden gradient-medical p-12 text-white"
+        className="relative hidden lg:flex flex-col justify-between overflow-hidden gradient-medical p-10 xl:p-12 text-white"
       >
         {/* Decorative circles */}
-        <div className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-emerald-400/30 blur-3xl" />
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} />
+        <div className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-[#E53935]/15 blur-3xl" />
+        <div className="absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-[#2563EB]/20 blur-3xl" />
+        <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,.35) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.35) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
 
         <div className="relative z-10">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-white/20 bg-white/10 backdrop-blur-md">
               <Activity className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold">ReacciónVital</h2>
-              <p className="text-sm text-white/80">Sistema de Monitoreo Médico</p>
+              <h2 className="text-xl font-semibold text-white">RefleAct</h2>
+              <p className="max-w-sm text-xs leading-5 text-white/75">Sistema Inteligente de Evaluación del Tiempo de Reacción</p>
             </div>
           </div>
         </div>
@@ -154,9 +154,9 @@ export function RegisterPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.6 }}
-            className="text-4xl font-semibold leading-tight"
+            className="text-4xl font-semibold leading-tight text-white"
           >
-            Monitoreo inteligente del tiempo de reacción en adultos mayores.
+            Sistema Inteligente de Evaluación del Tiempo de Reacción
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -164,7 +164,7 @@ export function RegisterPage() {
             transition={{ delay: 0.4, duration: 0.6 }}
             className="text-white/85 text-lg"
           >
-            Plataforma profesional con dispositivos ESP32 para el seguimiento continuo, evaluación y alertas tempranas en el cuidado de personas mayores.
+            Sistema desarrollado para evaluar y monitorear el tiempo de reacción de adultos mayores mediante dispositivos ESP32 y análisis en tiempo real.
           </motion.p>
 
           <motion.div
@@ -174,12 +174,12 @@ export function RegisterPage() {
             className="grid grid-cols-3 gap-3 pt-6"
           >
             {[
-              { icon: HeartPulse, label: 'Monitoreo en vivo' },
-              { icon: ShieldCheck, label: 'Datos seguros' },
-              { icon: Users, label: 'Multi-rol' },
+              { icon: HeartPulse, label: 'Evaluación en vivo' },
+              { icon: ShieldCheck, label: 'Datos protegidos' },
+              { icon: Users, label: 'Perfiles clínicos' },
             ].map(({ icon: Icon, label }) => (
-              <div key={label} className="rounded-xl bg-white/10 backdrop-blur-md p-4 border border-white/15">
-                <Icon className="h-5 w-5 mb-2" />
+              <div key={label} className="auth-feature rounded-lg p-4">
+                <Icon className="h-4 w-4 mb-2 text-white/90" />
                 <p className="text-xs text-white/85">{label}</p>
               </div>
             ))}
@@ -187,25 +187,25 @@ export function RegisterPage() {
         </div>
 
         <p className="relative z-10 text-xs text-white/70">
-          © 2026 ReacciónVital · Plataforma médica profesional
+          © 2026 RefleAct · Software clínico de evaluación
         </p>
       </motion.div>
 
       {/* Right panel - form */}
-      <div className="flex items-center justify-center p-6 sm:p-12">
+      <div className="flex items-center justify-center p-5 sm:p-10">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="w-full max-w-md"
+          className="clinical-surface w-full max-w-md p-7 sm:p-9"
         >
           <div className="lg:hidden mb-8 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl gradient-medical text-white shadow-elevated">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-white">
               <Activity className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">ReacciónVital</h2>
-              <p className="text-xs text-muted-foreground">Monitoreo médico</p>
+              <h2 className="text-lg font-semibold">RefleAct</h2>
+              <p className="max-w-[240px] text-xs leading-4 text-muted-foreground">Sistema Inteligente de Evaluación del Tiempo de Reacción</p>
             </div>
           </div>
 
@@ -270,7 +270,7 @@ export function RegisterPage() {
                   maxLength={254}
                   value={formData.email}
                   onChange={(e) => handleChange('email', e.target.value)}
-                  placeholder="usuario@reaccionvital.com"
+                  placeholder="usuario@refleact.com"
                   className={cn('pl-9', errors.email && 'border-rose-300 focus:ring-rose-200')}
                   disabled={isSubmitting}
                 />
@@ -375,14 +375,14 @@ export function RegisterPage() {
               ¿Ya tienes una cuenta?{' '}
               <Link
                 to="/login"
-                className="font-medium text-sky-600 hover:text-sky-700 hover:underline"
+                className="font-medium text-primary hover:text-[#B71C1C] hover:underline"
               >
                 Iniciar sesión
               </Link>
             </p>
 
             <p className="text-center text-xs text-muted-foreground">
-              ReacciónVital
+              RefleAct
             </p>
           </form>
         </motion.div>

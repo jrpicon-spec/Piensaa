@@ -105,14 +105,14 @@ export function CaregiversPage() {
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-sky-200 bg-sky-50 p-4"
+          className="rounded-lg border border-border bg-white p-4 shadow-card"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-sky-700 uppercase tracking-wider">Total cuidadores</p>
-              <p className="mt-1 text-2xl font-semibold text-sky-900">{caregivers.length}</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total cuidadores</p>
+              <p className="mt-1 text-2xl font-semibold text-foreground">{caregivers.length}</p>
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-sky-600 shadow-elevated">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-primary">
               <Stethoscope className="h-5 w-5" />
             </div>
           </div>
@@ -121,14 +121,14 @@ export function CaregiversPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"
+          className="rounded-lg border border-border bg-white p-4 shadow-card"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-emerald-700 uppercase tracking-wider">Activos</p>
-              <p className="mt-1 text-2xl font-semibold text-emerald-900">{totalActive}</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Activos</p>
+              <p className="mt-1 text-2xl font-semibold text-foreground">{totalActive}</p>
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-emerald-600 shadow-elevated">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-primary">
               <Users className="h-5 w-5" />
             </div>
           </div>
@@ -137,14 +137,14 @@ export function CaregiversPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="rounded-2xl border border-violet-200 bg-violet-50 p-4"
+          className="rounded-lg border border-border bg-white p-4 shadow-card"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-violet-700 uppercase tracking-wider">Pacientes asignados</p>
-              <p className="mt-1 text-2xl font-semibold text-violet-900">{totalPatients}</p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Pacientes asignados</p>
+              <p className="mt-1 text-2xl font-semibold text-foreground">{totalPatients}</p>
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-violet-600 shadow-elevated">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-primary">
               <Users className="h-5 w-5" />
             </div>
           </div>

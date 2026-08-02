@@ -38,7 +38,7 @@ export function PatientCard({ patient, index = 0, onEdit, onDelete, onView, onSt
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.4 }}
-      className="group relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-card hover:shadow-elevated transition-all"
+      className="group relative overflow-hidden rounded-lg border border-border bg-card p-4 shadow-card transition-colors duration-200 hover:border-slate-300"
     >
       {/* Status bar */}
       <div className={cn('absolute top-0 left-0 right-0 h-1', colors.dot)} />

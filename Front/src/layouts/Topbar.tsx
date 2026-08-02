@@ -1,10 +1,10 @@
 import {
-  DownOutlined,
-  LogoutOutlined,
-  MenuOutlined,
-  SettingOutlined,
-  UserOutlined,
-} from '@ant-design/icons';
+  ChevronDown as DownOutlined,
+  LogOut as LogoutOutlined,
+  Menu as MenuOutlined,
+  Settings as SettingOutlined,
+  User as UserOutlined,
+} from 'lucide-react';
 import { Breadcrumb, Button, Dropdown, Flex, Grid, Layout, Space, Tag, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -35,7 +35,7 @@ export function Topbar() {
     .filter((item) => item.roles.includes(user.role))
     .find((item) => location.pathname === item.href);
   const detailRoute = detailRouteLabels.find((item) => item.match.test(location.pathname));
-  const sectionTitle = detailRoute?.label ?? navItem?.label ?? 'ReacciónVital';
+  const sectionTitle = detailRoute?.label ?? navItem?.label ?? 'RefleAct';
   const roleLabel = user.role === 'admin' ? 'Administrador' : 'Cuidador';
   const breadcrumbItems = detailRoute
     ? [
@@ -63,12 +63,12 @@ export function Topbar() {
         disabled: true,
       },
       { type: 'divider' },
-      { key: 'profile', icon: <UserOutlined />, label: 'Mi perfil' },
+      { key: 'profile', icon: <UserOutlined size={16} />, label: 'Mi perfil' },
       ...(user.role === 'admin'
-        ? [{ key: 'settings', icon: <SettingOutlined />, label: 'Configuración' }]
+        ? [{ key: 'settings', icon: <SettingOutlined size={16} />, label: 'Configuración' }]
         : []),
       { type: 'divider' },
-      { key: 'logout', icon: <LogoutOutlined />, label: 'Cerrar sesión', danger: true },
+      { key: 'logout', icon: <LogoutOutlined size={16} />, label: 'Cerrar sesión', danger: true },
     ],
     onClick: ({ key }) => {
       if (key === 'profile') navigate('/profile');
@@ -87,7 +87,7 @@ export function Topbar() {
           {!screens.lg && (
             <Button
               type="text"
-              icon={<MenuOutlined />}
+              icon={<MenuOutlined size={18} />}
               onClick={() => setMobileOpen(true)}
               aria-label="Abrir navegación"
             />
@@ -103,12 +103,12 @@ export function Topbar() {
               deviceId={deviceStatus?.deviceId}
             />
           )}
-          {screens.md && <Tag>{roleLabel}</Tag>}
+          {screens.md && <Tag color={user.role === 'admin' ? 'red' : 'blue'}>{roleLabel}</Tag>}
           <Dropdown menu={userMenu} placement="bottomRight" trigger={['click']}>
             <Button type="text" className="rv-user-button" aria-label="Abrir menú del usuario">
               <UserAvatar name={user.name} src={user.avatar} />
               {screens.sm && <span className="rv-user-button__name">{user.name.split(' ')[0]}</span>}
-              <DownOutlined className="rv-user-button__chevron" />
+              <DownOutlined className="rv-user-button__chevron" size={12} />
             </Button>
           </Dropdown>
         </Space>

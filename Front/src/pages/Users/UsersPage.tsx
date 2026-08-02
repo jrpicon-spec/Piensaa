@@ -89,11 +89,11 @@ export function UsersPage() {
         </Button>} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Metric label="Total usuarios" value={users.length} icon={<Users className="h-5 w-5" />}
-          className="border-sky-200 bg-sky-50 text-sky-800" />
+          className="border-border bg-white text-foreground" />
         <Metric label="Administradores" value={admins} icon={<ShieldCheck className="h-5 w-5" />}
-          className="border-violet-200 bg-violet-50 text-violet-800" />
+          className="border-border bg-white text-foreground" />
         <Metric label="Cuidadores" value={caregivers} icon={<Stethoscope className="h-5 w-5" />}
-          className="border-emerald-200 bg-emerald-50 text-emerald-800" />
+          className="border-border bg-white text-foreground" />
       </div>
       <div className="flex flex-col gap-3 md:flex-row">
         <div className="relative flex-1 md:max-w-md">
@@ -156,11 +156,11 @@ function Metric({ label, value, icon, className }: {
   label: string; value: number; icon: React.ReactNode; className: string;
 }) {
   return <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-    className={`rounded-2xl border p-4 ${className}`}>
+    transition={{ duration: 0.18 }} className={`rounded-lg border p-4 shadow-card ${className}`}>
     <div className="flex items-center justify-between">
       <div><p className="text-xs font-medium uppercase tracking-wider">{label}</p>
         <p className="mt-1 text-2xl font-semibold">{value}</p></div>
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-elevated">{icon}</div>
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-primary">{icon}</div>
     </div>
   </motion.div>;
 }

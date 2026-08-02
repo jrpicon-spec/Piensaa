@@ -138,29 +138,29 @@ export function MyPatientsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="grid grid-cols-2 lg:grid-cols-4 gap-3"
       >
-        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
-          <Stethoscope className="h-5 w-5 text-sky-600 mb-2" />
-          <p className="text-xs text-sky-700">Asignados</p>
-          <p className="text-2xl font-semibold text-sky-900">{myPatients.length}</p>
+        <div className="rounded-lg border border-border bg-white p-4 shadow-card">
+          <Stethoscope className="mb-2 h-4 w-4 text-primary" />
+          <p className="text-xs text-muted-foreground">Asignados</p>
+          <p className="text-2xl font-semibold text-foreground">{myPatients.length}</p>
         </div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-          <HeartPulse className="h-5 w-5 text-emerald-600 mb-2" />
-          <p className="text-xs text-emerald-700">Normales</p>
-          <p className="text-2xl font-semibold text-emerald-900">{myPatients.filter((p) => p.status === 'normal').length}</p>
+        <div className="rounded-lg border border-border bg-white p-4 shadow-card">
+          <HeartPulse className="mb-2 h-4 w-4 text-[#2E7D32]" />
+          <p className="text-xs text-muted-foreground">Normales</p>
+          <p className="text-2xl font-semibold text-foreground">{myPatients.filter((p) => p.status === 'normal').length}</p>
         </div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-          <HeartPulse className="h-5 w-5 text-amber-600 mb-2" />
-          <p className="text-xs text-amber-700">Atención</p>
-          <p className="text-2xl font-semibold text-amber-900">{myPatients.filter((p) => p.status === 'atencion').length}</p>
+        <div className="rounded-lg border border-border bg-white p-4 shadow-card">
+          <HeartPulse className="mb-2 h-4 w-4 text-[#F9A825]" />
+          <p className="text-xs text-muted-foreground">Atención</p>
+          <p className="text-2xl font-semibold text-foreground">{myPatients.filter((p) => p.status === 'atencion').length}</p>
         </div>
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
-          <HeartPulse className="h-5 w-5 text-rose-600 mb-2" />
-          <p className="text-xs text-rose-700">Riesgo</p>
-          <p className="text-2xl font-semibold text-rose-900">{myPatients.filter((p) => p.status === 'riesgo').length}</p>
+        <div className="rounded-lg border border-border bg-white p-4 shadow-card">
+          <HeartPulse className="mb-2 h-4 w-4 text-[#D32F2F]" />
+          <p className="text-xs text-muted-foreground">Riesgo</p>
+          <p className="text-2xl font-semibold text-foreground">{myPatients.filter((p) => p.status === 'riesgo').length}</p>
         </div>
       </motion.div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center rounded-2xl border border-border bg-white p-3 shadow-card">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center rounded-lg border border-border bg-white p-3 shadow-card">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -176,9 +176,9 @@ export function MyPatientsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="normal">🟢 Normal</SelectItem>
-            <SelectItem value="atencion">🟡 Atención</SelectItem>
-            <SelectItem value="riesgo">🔴 Riesgo</SelectItem>
+            <SelectItem value="normal">Normal</SelectItem>
+            <SelectItem value="atencion">Atención</SelectItem>
+            <SelectItem value="riesgo">Riesgo</SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -141,12 +141,12 @@ export function StatisticsPage() {
   if (!hasData && !error) return <div className="p-6 text-muted-foreground">Sin datos disponibles.</div>;
 
   return (
-    <div className="space-y-10 pb-6">
-      <header className="border-b border-slate-200/70 pb-8 pt-1">
-        <h1 className="text-4xl font-semibold tracking-[-0.035em] text-slate-950">
+    <div className="space-y-6 pb-6">
+      <header className="border-b border-slate-200 pb-5 pt-1">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
           Estadísticas
         </h1>
-        <p className="mt-3 max-w-3xl text-lg leading-7 text-slate-500">
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
           Análisis avanzado del rendimiento del sistema y los pacientes bajo cuidado.
         </p>
       </header>
@@ -172,7 +172,7 @@ export function StatisticsPage() {
           title="Tendencia mensual"
           description="Promedio de tiempo de reacción por mes"
           data={monthlyData}
-          color="#3b82a0"
+          color="#2563EB"
           height={300}
         />
         <BarChartCard
@@ -199,7 +199,7 @@ export function StatisticsPage() {
           coloredByVariant
           height={280}
         />
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 hover:border-slate-300/80 hover:shadow-[0_14px_32px_rgba(15,23,42,0.07)] lg:col-span-2">
+        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-card transition-colors duration-200 hover:border-slate-300 lg:col-span-2">
           <h3 className="text-[15px] font-semibold text-slate-900">Resumen del sistema</h3>
           <p className="mt-1.5 text-sm text-slate-500">Datos actualizados en tiempo real</p>
           <div className="mt-7 space-y-4">

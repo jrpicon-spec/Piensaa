@@ -17,8 +17,8 @@ export function UserCard({ user, index, onEdit, onDelete }: {
   const caregiver = user.role === 'cuidador';
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
-      className="rounded-2xl border border-border bg-white p-5 shadow-card transition-all hover:shadow-elevated">
+      transition={{ delay: index * 0.02, duration: 0.18 }}
+      className="rounded-lg border border-border bg-white p-4 shadow-card transition-colors duration-200 hover:border-slate-300">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <Avatar className="h-12 w-12"><AvatarFallback>{getInitials(user.name)}</AvatarFallback></Avatar>
@@ -48,7 +48,7 @@ export function UserCard({ user, index, onEdit, onDelete }: {
       </div>
       <div className="mt-4 flex items-center justify-between border-t pt-4">
         <div className="flex gap-2">
-          <Badge className={caregiver ? 'bg-emerald-100 text-emerald-700' : 'bg-violet-100 text-violet-700'}>
+          <Badge className={caregiver ? 'border-blue-200 bg-blue-50 text-[#2563EB]' : 'border-red-200 bg-red-50 text-[#C62828]'}>
             {caregiver ? 'Cuidador' : 'Administrador'}
           </Badge>
           <Badge variant={user.status === 'activo' ? 'success' : 'muted'}>

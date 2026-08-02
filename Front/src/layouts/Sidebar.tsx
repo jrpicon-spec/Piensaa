@@ -1,19 +1,19 @@
 import type { ReactNode } from 'react';
 import {
-  ApiOutlined,
-  BarChartOutlined,
-  DashboardOutlined,
-  FileTextOutlined,
-  FundProjectionScreenOutlined,
-  HistoryOutlined,
-  IdcardOutlined,
-  MedicineBoxOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  SettingOutlined,
-  TeamOutlined,
-  UserOutlined,
-} from '@ant-design/icons';
+  Cable as ApiOutlined,
+  BarChart3 as BarChartOutlined,
+  LayoutDashboard as DashboardOutlined,
+  FileText as FileTextOutlined,
+  MonitorDot as FundProjectionScreenOutlined,
+  History as HistoryOutlined,
+  IdCard as IdcardOutlined,
+  HeartPulse as MedicineBoxOutlined,
+  PanelLeftClose as MenuFoldOutlined,
+  PanelLeftOpen as MenuUnfoldOutlined,
+  Settings as SettingOutlined,
+  Users as TeamOutlined,
+  User as UserOutlined,
+} from 'lucide-react';
 import { Button, Drawer, Grid, Layout, Menu, Tooltip, Typography } from 'antd';
 import type { MenuProps } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -26,31 +26,31 @@ const { Sider } = Layout;
 const { useBreakpoint } = Grid;
 
 const iconMap: Record<string, ReactNode> = {
-  ApiOutlined: <ApiOutlined />,
-  BarChartOutlined: <BarChartOutlined />,
-  DashboardOutlined: <DashboardOutlined />,
-  FileTextOutlined: <FileTextOutlined />,
-  FundProjectionScreenOutlined: <FundProjectionScreenOutlined />,
-  HistoryOutlined: <HistoryOutlined />,
-  IdcardOutlined: <IdcardOutlined />,
-  MedicineBoxOutlined: <MedicineBoxOutlined />,
-  SettingOutlined: <SettingOutlined />,
-  TeamOutlined: <TeamOutlined />,
-  UserOutlined: <UserOutlined />,
+  ApiOutlined: <ApiOutlined size={18} />,
+  BarChartOutlined: <BarChartOutlined size={18} />,
+  DashboardOutlined: <DashboardOutlined size={18} />,
+  FileTextOutlined: <FileTextOutlined size={18} />,
+  FundProjectionScreenOutlined: <FundProjectionScreenOutlined size={18} />,
+  HistoryOutlined: <HistoryOutlined size={18} />,
+  IdcardOutlined: <IdcardOutlined size={18} />,
+  MedicineBoxOutlined: <MedicineBoxOutlined size={18} />,
+  SettingOutlined: <SettingOutlined size={18} />,
+  TeamOutlined: <TeamOutlined size={18} />,
+  UserOutlined: <UserOutlined size={18} />,
 };
 
 const groups: NavItem['group'][] = ['principal', 'gestion', 'seguimiento', 'cuenta'];
 
 function Brand({ collapsed = false }: { collapsed?: boolean }) {
   return (
-    <div className="rv-brand" aria-label="ReacciónVital">
+    <div className="rv-brand" aria-label="RefleAct">
       <span className="rv-brand__mark" aria-hidden="true">
         <span className="rv-brand__pulse" />
       </span>
       {!collapsed && (
         <span className="rv-brand__text">
-          <Typography.Text strong>ReacciónVital</Typography.Text>
-          <Typography.Text>Sistema de seguimiento</Typography.Text>
+          <Typography.Text strong>RefleAct</Typography.Text>
+          <Typography.Text>Evaluación del tiempo de reacción</Typography.Text>
         </span>
       )}
     </div>
@@ -92,7 +92,7 @@ export function Sidebar() {
     <Menu
       className="rv-navigation"
       mode="inline"
-      theme="dark"
+      theme="light"
       inlineCollapsed={isCollapsed && Boolean(screens.lg)}
       items={menuItems}
       selectedKeys={selectedItem ? [selectedItem.href] : []}
@@ -112,7 +112,7 @@ export function Sidebar() {
         open={isMobileOpen}
         title={<Brand />}
         onClose={() => setMobileOpen(false)}
-        styles={{ body: { padding: 0, background: '#22272e' }, header: { background: '#22272e' } }}
+        styles={{ body: { padding: 0, background: '#FFFFFF' }, header: { background: '#FFFFFF' } }}
       >
         {menu}
       </Drawer>
@@ -126,7 +126,7 @@ export function Sidebar() {
       collapsedWidth={72}
       collapsed={isCollapsed}
       trigger={null}
-      theme="dark"
+      theme="light"
     >
       <Brand collapsed={isCollapsed} />
       <div className="rv-sider__menu">{menu}</div>
@@ -136,7 +136,7 @@ export function Sidebar() {
             block
             type="text"
             className="rv-sider__toggle"
-            icon={isCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            icon={isCollapsed ? <MenuUnfoldOutlined size={17} /> : <MenuFoldOutlined size={17} />}
             onClick={() => setCollapsed(!isCollapsed)}
             aria-label={isCollapsed ? 'Expandir navegación' : 'Colapsar navegación'}
           >

@@ -171,7 +171,7 @@ export function CaregiverFormModal({ open, onOpenChange, caregiver, onSave }: Ca
                   maxLength={254}
                   value={values.email}
                   onChange={(e) => setValues({ ...values, email: e.target.value })}
-                  placeholder="usuario@reaccionvital.com"
+                  placeholder="usuario@refleact.com"
                 />
                 {errors.email && <p className="text-xs text-rose-600">{errors.email}</p>}
               </div>

@@ -28,15 +28,15 @@ interface BarChartCardProps {
 }
 
 const variantColors: Record<string, string> = {
-  normal: '#22c55e',
-  atencion: '#f59e0b',
-  riesgo: '#ef4444',
+  normal: '#2E7D32',
+  atencion: '#F9A825',
+  riesgo: '#D32F2F',
 };
 
 const statisticsVariantColors: Record<string, string> = {
-  normal: '#4f9b7a',
-  atencion: '#d69545',
-  riesgo: '#c96772',
+  normal: '#2E7D32',
+  atencion: '#F9A825',
+  riesgo: '#D32F2F',
 };
 
 export function BarChartCard({
@@ -56,8 +56,8 @@ export function BarChartCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.06, duration: 0.4 }}
       className={isStatistics
-        ? 'rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.03),0_8px_24px_rgba(15,23,42,0.04)] transition-all duration-300 hover:border-slate-300/80 hover:shadow-[0_14px_32px_rgba(15,23,42,0.07)]'
-        : 'rounded-2xl border border-border bg-card p-5 shadow-card'}
+        ? 'rounded-lg border border-slate-200 bg-white p-5 shadow-card transition-colors duration-200 hover:border-slate-300'
+        : 'rounded-lg border border-border bg-card p-4 shadow-card'}
     >
       <div className="flex items-start justify-between">
         <div>
@@ -91,7 +91,7 @@ export function BarChartCard({
                   fill={
                     coloredByVariant && entry.variant
                       ? (isStatistics ? statisticsVariantColors : variantColors)[entry.variant]
-                      : isStatistics ? '#527f9b' : '#1e88e5'
+                      : isStatistics ? '#2563EB' : '#C62828'
                   }
                 />
               ))}

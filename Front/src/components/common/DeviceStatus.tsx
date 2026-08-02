@@ -1,5 +1,5 @@
 import { Space, Tooltip, Typography } from 'antd';
-import { ApiOutlined } from '@ant-design/icons';
+import { Cpu as ApiOutlined } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 
 interface DeviceStatusProps {
@@ -11,7 +11,7 @@ interface DeviceStatusProps {
 export function DeviceStatus({ connected, deviceId, compact = false }: DeviceStatusProps) {
   const hasState = typeof connected === 'boolean';
   const label = hasState ? (connected ? 'ESP32 conectado' : 'ESP32 desconectado') : 'ESP32 sin estado';
-  const tone = hasState ? (connected ? 'success' : 'error') : 'neutral';
+  const tone = hasState ? (connected ? 'success' : 'neutral') : 'neutral';
   const content = <StatusBadge compact label={label} tone={tone} />;
 
   if (compact) {
@@ -20,7 +20,7 @@ export function DeviceStatus({ connected, deviceId, compact = false }: DeviceSta
 
   return (
     <Space size={8}>
-      <ApiOutlined aria-hidden="true" />
+      <ApiOutlined aria-hidden="true" size={16} />
       {content}
       {deviceId && <Typography.Text type="secondary">{deviceId}</Typography.Text>}
     </Space>

@@ -26,7 +26,7 @@ export function PatientListCard({
   const data = patients.slice(0, limit);
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-card h-full flex flex-col">
+    <div className="flex h-full flex-col rounded-lg border border-border bg-card p-4 shadow-card">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-base font-semibold text-foreground">{title}</h3>

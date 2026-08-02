@@ -102,7 +102,7 @@ export function DevicesPage() {
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-border bg-white p-4 shadow-card"
+          className="rounded-lg border border-border bg-white p-4 shadow-card"
         >
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Cpu className="h-3.5 w-3.5" /> Total
@@ -113,28 +113,28 @@ export function DevicesPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"
+          className="rounded-lg border border-border bg-white p-4 shadow-card"
         >
-          <div className="flex items-center gap-2 text-xs text-emerald-700">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" /> Conectados
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-[#2E7D32]" /> Conectados
           </div>
-          <p className="mt-1 text-2xl font-semibold text-emerald-900">{connectedCount}</p>
+          <p className="mt-1 text-2xl font-semibold text-foreground">{connectedCount}</p>
         </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="rounded-2xl border border-rose-200 bg-rose-50 p-4"
+          className="rounded-lg border border-border bg-white p-4 shadow-card"
         >
-          <div className="flex items-center gap-2 text-xs text-rose-700">
-            <span className="h-2 w-2 rounded-full bg-rose-500" /> Desconectados
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-slate-400" /> Desconectados
           </div>
-          <p className="mt-1 text-2xl font-semibold text-rose-900">{disconnectedCount}</p>
+          <p className="mt-1 text-2xl font-semibold text-foreground">{disconnectedCount}</p>
         </motion.div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center rounded-2xl border border-border bg-white p-3 shadow-card">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center rounded-lg border border-border bg-white p-3 shadow-card">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input

@@ -206,11 +206,11 @@ export function DashboardPage() {
   if (!data) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <WelcomeBanner />
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           icon={Gauge}
           label="Tiempo promedio"
@@ -308,12 +308,12 @@ export function DashboardPage() {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="rounded-2xl border border-border bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-5 shadow-card"
+        transition={{ duration: 0.18 }}
+        className="rounded-lg border border-border bg-white p-4 shadow-card"
       >
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-elevated text-sky-600">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-50 text-primary">
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
@@ -324,11 +324,11 @@ export function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-medium text-sky-700 border border-sky-200">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
               <HeartPulse className="h-3.5 w-3.5" />
               Sistema operativo
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-medium text-emerald-700 border border-emerald-200">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-green-200 bg-white px-3 py-1 text-xs font-medium text-[#2E7D32]">
               <Activity className="h-3.5 w-3.5" />
               ESP32 sincronizados
             </span>
