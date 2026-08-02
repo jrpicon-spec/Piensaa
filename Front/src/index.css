@@ -173,3 +173,86 @@
     transition-duration: 180ms !important;
   }
 }
+
+.report-export-header {
+  display: none;
+}
+
+.report-export-area.report-exporting {
+  padding: 20px;
+}
+
+.report-export-area.report-exporting .report-export-header {
+  display: block;
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    width: 100%;
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .report-export-area,
+  .report-export-area * {
+    visibility: visible !important;
+  }
+
+  .report-export-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .report-export-header {
+    display: block !important;
+  }
+
+  .report-export-area [data-pdf-block],
+  .report-export-area svg,
+  .report-export-area tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report-export-area thead {
+    display: table-header-group;
+  }
+
+  .report-export-area .overflow-x-auto {
+    overflow: visible !important;
+  }
+
+  .report-export-area table {
+    width: 100% !important;
+    font-size: 9pt;
+  }
+
+  .report-export-area th,
+  .report-export-area td {
+    padding: 7px 10px !important;
+  }
+
+  .report-export-area .shadow-card,
+  .report-export-area .shadow-elevated,
+  .report-export-area .shadow-strong {
+    box-shadow: none !important;
+  }
+}
