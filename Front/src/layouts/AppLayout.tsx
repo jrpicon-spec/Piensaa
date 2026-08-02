@@ -1,19 +1,23 @@
+import { Layout } from 'antd';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import './app-layout.css';
+
+const { Content } = Layout;
 
 export function AppLayout() {
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <Layout className="rv-app-shell">
       <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <Layout className="rv-app-main">
         <Topbar />
-        <main className="flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <Content className="rv-content" id="main-content">
+          <div className="rv-content__inner">
             <Outlet />
           </div>
-        </main>
-      </div>
-    </div>
+        </Content>
+      </Layout>
+    </Layout>
   );
 }

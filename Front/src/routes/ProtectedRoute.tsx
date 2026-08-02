@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import type { UserRole } from '@/types';
 import { getDefaultRoute } from '@/services/auth-routing';
+import { LoadingState } from '@/components/common';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -14,11 +15,8 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
-          <p className="text-sm text-muted-foreground">Cargando...</p>
-        </div>
+      <div className="rv-route-loading">
+        <LoadingState compact label="Verificando acceso…" />
       </div>
     );
   }

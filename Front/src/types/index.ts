@@ -101,4 +101,5 @@ export interface NavItem {
   href: string;
   icon: string;
   roles: UserRole[];
+  group: 'principal' | 'gestion' | 'seguimiento' | 'cuenta';
 }

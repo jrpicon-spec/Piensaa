@@ -1,173 +1,149 @@
-import { NavLink, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, ChevronsLeft, ChevronsRight, X } from 'lucide-react';
+import type { ReactNode } from 'react';
+import {
+  ApiOutlined,
+  BarChartOutlined,
+  DashboardOutlined,
+  FileTextOutlined,
+  FundProjectionScreenOutlined,
+  HistoryOutlined,
+  IdcardOutlined,
+  MedicineBoxOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  SettingOutlined,
+  TeamOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
+import { Button, Drawer, Grid, Layout, Menu, Tooltip, Typography } from 'antd';
+import type { MenuProps } from 'antd';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebar } from '@/contexts/SidebarContext';
-import { navItems, iconMap } from '@/data/navigation';
-import { cn } from '@/utils';
-import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/Tooltip';
+import { navigationGroupLabels, navItems } from '@/data/navigation';
+import type { NavItem } from '@/types';
+
+const { Sider } = Layout;
+const { useBreakpoint } = Grid;
+
+const iconMap: Record<string, ReactNode> = {
+  ApiOutlined: <ApiOutlined />,
+  BarChartOutlined: <BarChartOutlined />,
+  DashboardOutlined: <DashboardOutlined />,
+  FileTextOutlined: <FileTextOutlined />,
+  FundProjectionScreenOutlined: <FundProjectionScreenOutlined />,
+  HistoryOutlined: <HistoryOutlined />,
+  IdcardOutlined: <IdcardOutlined />,
+  MedicineBoxOutlined: <MedicineBoxOutlined />,
+  SettingOutlined: <SettingOutlined />,
+  TeamOutlined: <TeamOutlined />,
+  UserOutlined: <UserOutlined />,
+};
+
+const groups: NavItem['group'][] = ['principal', 'gestion', 'seguimiento', 'cuenta'];
+
+function Brand({ collapsed = false }: { collapsed?: boolean }) {
+  return (
+    <div className="rv-brand" aria-label="ReacciónVital">
+      <span className="rv-brand__mark" aria-hidden="true">
+        <span className="rv-brand__pulse" />
+      </span>
+      {!collapsed && (
+        <span className="rv-brand__text">
+          <Typography.Text strong>ReacciónVital</Typography.Text>
+          <Typography.Text>Sistema de seguimiento</Typography.Text>
+        </span>
+      )}
+    </div>
+  );
+}
 
 export function Sidebar() {
   const { user } = useAuth();
-  const { isCollapsed, toggle, isMobileOpen, setMobileOpen } = useSidebar();
+  const { isCollapsed, setCollapsed, isMobileOpen, setMobileOpen } = useSidebar();
   const location = useLocation();
+  const navigate = useNavigate();
+  const screens = useBreakpoint();
 
   if (!user) return null;
 
-  const items = navItems.filter((item) => item.roles.includes(user.role));
+  const visibleItems = navItems.filter((item) => item.roles.includes(user.role));
+  const menuItems: MenuProps['items'] = groups.flatMap((group) => {
+    const children = visibleItems.filter((item) => item.group === group);
+    if (children.length === 0) return [];
 
-  const content = (
-    <div
-      className={cn(
-        'flex h-full flex-col border-r border-slate-200/80 bg-white transition-all duration-300',
-        isCollapsed ? 'w-[78px]' : 'w-64',
-      )}
-    >
-      {/* Logo */}
-      <div className="flex h-[72px] items-center gap-3 border-b border-slate-100 px-4">
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl gradient-medical text-white shadow-elevated">
-          <Activity className="h-5 w-5" />
-        </div>
-        {!isCollapsed && (
-          <motion.div
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex flex-col overflow-hidden"
-          >
-            <span className="text-base font-semibold tracking-tight text-foreground">ReacciónVital</span>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Monitoreo Médico
-            </span>
-          </motion.div>
-        )}
-      </div>
+    return [
+      {
+        type: 'group' as const,
+        label: navigationGroupLabels[group],
+        children: children.map((item) => ({
+          key: item.href,
+          icon: iconMap[item.icon],
+          label: item.label,
+        })),
+      },
+    ];
+  });
 
-      {/* Navigation */}
-      <TooltipProvider delayDuration={100}>
-        <nav className="flex-1 overflow-y-auto px-3 py-5">
-          <ul className="flex flex-col gap-1.5">
-            {items.map((item) => {
-              const Icon = iconMap[item.icon] ?? Activity;
-              const isActive =
-                location.pathname === item.href || location.pathname.startsWith(item.href + '/');
-              const link = (
-                <NavLink
-                  to={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    'group relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
-                    isActive
-                      ? 'bg-sky-50/90 text-sky-800 shadow-[inset_0_0_0_1px_rgba(186,230,253,0.55)]'
-                      : 'text-slate-600 hover:translate-x-0.5 hover:bg-slate-50/90 hover:text-slate-900',
-                    isCollapsed && 'justify-center px-2',
-                  )}
-                >
-                  {isActive && (
-                    <motion.span
-                      layoutId="sidebar-active-indicator"
-                      className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-sky-600"
-                    />
-                  )}
-                  <Icon
-                    className={cn(
-                      'h-[19px] w-[19px] flex-shrink-0 transition-colors duration-200',
-                      isActive ? 'text-sky-700' : 'text-slate-400 group-hover:text-sky-600',
-                    )}
-                  />
-                  {!isCollapsed && <span className="truncate">{item.label}</span>}
-                </NavLink>
-              );
-              return (
-                <li key={item.href}>
-                  {isCollapsed ? (
-                    <Tooltip>
-                      <TooltipTrigger asChild>{link}</TooltipTrigger>
-                      <TooltipContent side="right">{item.label}</TooltipContent>
-                    </Tooltip>
-                  ) : (
-                    link
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-      </TooltipProvider>
+  const selectedItem = visibleItems
+    .filter((item) => location.pathname === item.href || location.pathname.startsWith(`${item.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0];
 
-      {/* Footer */}
-      <div className="border-t border-slate-100 p-3">
-        {!isCollapsed && (
-          <div className="rounded-xl bg-gradient-to-br from-sky-50 to-emerald-50 p-3 mb-2">
-            <p className="text-xs font-semibold text-foreground">Estado del sistema</p>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              <span className="text-xs text-muted-foreground">Todos los servicios operativos</span>
-            </div>
-          </div>
-        )}
-        <button
-          type="button"
-          onClick={toggle}
-          className={cn(
-            'hidden min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition-all duration-200 hover:bg-slate-50 hover:text-slate-800 lg:flex',
-            isCollapsed && 'justify-center',
-          )}
-          aria-label={isCollapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
-        >
-          {isCollapsed ? (
-            <ChevronsRight className="h-4 w-4" />
-          ) : (
-            <>
-              <ChevronsLeft className="h-4 w-4" />
-              <span>Colapsar</span>
-            </>
-          )}
-        </button>
-      </div>
-    </div>
+  const menu = (
+    <Menu
+      className="rv-navigation"
+      mode="inline"
+      theme="dark"
+      inlineCollapsed={isCollapsed && Boolean(screens.lg)}
+      items={menuItems}
+      selectedKeys={selectedItem ? [selectedItem.href] : []}
+      onClick={({ key }) => {
+        navigate(key);
+        setMobileOpen(false);
+      }}
+    />
   );
 
-  return (
-    <>
-      {/* Desktop */}
-      <aside className="hidden lg:block sticky top-0 h-screen flex-shrink-0">{content}</aside>
+  if (!screens.lg) {
+    return (
+      <Drawer
+        className="rv-mobile-drawer"
+        placement="left"
+        width={280}
+        open={isMobileOpen}
+        title={<Brand />}
+        onClose={() => setMobileOpen(false)}
+        styles={{ body: { padding: 0, background: '#22272e' }, header: { background: '#22272e' } }}
+      >
+        {menu}
+      </Drawer>
+    );
+  }
 
-      {/* Mobile */}
-      <AnimatePresence>
-        {isMobileOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileOpen(false)}
-              className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm lg:hidden"
-            />
-            <motion.aside
-              initial={{ x: -280 }}
-              animate={{ x: 0 }}
-              exit={{ x: -280 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 z-50 lg:hidden"
-            >
-              <div className="relative h-full">
-                <button
-                  type="button"
-                  onClick={() => setMobileOpen(false)}
-                  className="absolute right-2 top-2 z-10 rounded-md p-1.5 text-white hover:bg-white/10"
-                  aria-label="Cerrar menú"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-                {content}
-              </div>
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
-    </>
+  return (
+    <Sider
+      className="rv-sider"
+      width={248}
+      collapsedWidth={72}
+      collapsed={isCollapsed}
+      trigger={null}
+      theme="dark"
+    >
+      <Brand collapsed={isCollapsed} />
+      <div className="rv-sider__menu">{menu}</div>
+      <div className="rv-sider__footer">
+        <Tooltip title={isCollapsed ? 'Expandir navegación' : undefined} placement="right">
+          <Button
+            block
+            type="text"
+            className="rv-sider__toggle"
+            icon={isCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={() => setCollapsed(!isCollapsed)}
+            aria-label={isCollapsed ? 'Expandir navegación' : 'Colapsar navegación'}
+          >
+            {!isCollapsed && 'Colapsar navegación'}
+          </Button>
+        </Tooltip>
+      </div>
+    </Sider>
   );
 }
