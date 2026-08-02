@@ -1,11 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
+  Brain,
   Cake,
   Calendar,
+  CheckCircle2,
+  CircleAlert,
   HeartPulse,
+  LoaderCircle,
   Mail,
   MapPin,
   Pencil,
@@ -44,6 +48,8 @@ import {
   relativeTime,
 } from '@/utils';
 
+type EvaluationStatus = 'available' | 'sending' | 'running' | 'finished' | 'error';
+
 export function PatientDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -53,7 +59,9 @@ export function PatientDetailsPage() {
   const [records, setRecords] = useState<Measurement[]>([]);
   const [loading, setLoading] = useState(true);
   const [testLevel, setTestLevel] = useState<'1' | '2' | '3' | '4'>('1');
-  const [isTestRunning, setIsTestRunning] = useState(false);
+  const [evaluationStatus, setEvaluationStatus] =
+    useState<EvaluationStatus>('available');
+  const transitionTimerRef = useRef<number | null>(null);
 
   async function refreshData(patientId: string) {
     const [patientData, measurementsData] = await Promise.all([
@@ -105,12 +113,20 @@ export function PatientDetailsPage() {
 
     const onTestFinished = (payload: { measurement?: { patientId?: string } }) => {
       if (payload.measurement?.patientId === id) {
-        setIsTestRunning(false);
-        void refreshData(id);
-        success(
-          'Prueba completada',
-          'La medición se registró y el historial se actualizó automáticamente.',
-        );
+        if (transitionTimerRef.current !== null) {
+          window.clearTimeout(transitionTimerRef.current);
+        }
+
+        setEvaluationStatus('finished');
+        transitionTimerRef.current = window.setTimeout(() => {
+          void refreshData(id).finally(() => {
+            setEvaluationStatus('available');
+            success(
+              'Prueba completada',
+              'La medición se registró y el historial se actualizó automáticamente.',
+            );
+          });
+        }, 1000);
       }
     };
 
@@ -122,10 +138,27 @@ export function PatientDetailsPage() {
 
   useEffect(() => {
     if (deviceStatus?.connected) {
+      setEvaluationStatus((current) =>
+        current === 'error' ? 'available' : current,
+      );
       return;
     }
-    setIsTestRunning(false);
+
+    if (transitionTimerRef.current !== null) {
+      window.clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+    setEvaluationStatus('error');
   }, [deviceStatus]);
+
+  useEffect(
+    () => () => {
+      if (transitionTimerRef.current !== null) {
+        window.clearTimeout(transitionTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const levelLabelMap: Record<'1' | '2' | '3' | '4', string> = {
     1: 'Fácil',
@@ -142,23 +175,77 @@ export function PatientDetailsPage() {
   };
 
   const isEsp32Connected = deviceStatus?.connected ?? false;
+  const isEvaluationLocked =
+    evaluationStatus === 'sending' ||
+    evaluationStatus === 'running' ||
+    evaluationStatus === 'finished';
+
+  const evaluationStatusDetails = {
+    available: {
+      label: 'Disponible',
+      icon: CheckCircle2,
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    },
+    sending: {
+      label: 'Enviando',
+      icon: LoaderCircle,
+      className: 'border-amber-200 bg-amber-50 text-amber-800',
+    },
+    running: {
+      label: 'Prueba en curso',
+      icon: Brain,
+      className: 'border-blue-200 bg-blue-50 text-blue-700',
+    },
+    finished: {
+      label: 'Finalizada',
+      icon: CheckCircle2,
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    },
+    error: {
+      label: 'Error',
+      icon: CircleAlert,
+      className: 'border-red-200 bg-red-50 text-red-700',
+    },
+  } satisfies Record<
+    EvaluationStatus,
+    {
+      label: string;
+      icon: typeof CheckCircle2;
+      className: string;
+    }
+  >;
+  const currentEvaluationStatus = evaluationStatusDetails[evaluationStatus];
+  const EvaluationStatusIcon = currentEvaluationStatus.icon;
 
   const handleStartTest = () => {
     if (!patient) return;
+    if (isEvaluationLocked) return;
     if (!isEsp32Connected) {
+      setEvaluationStatus('error');
       warning('ESP32 desconectado', 'No hay ningún dispositivo ESP32 conectado.');
       return;
     }
 
-    setIsTestRunning(true);
+    if (transitionTimerRef.current !== null) {
+      window.clearTimeout(transitionTimerRef.current);
+    }
+
+    setEvaluationStatus('sending');
     info(
-      'Prueba iniciada',
-      'Esperando resultado del dispositivo...',
+      'Enviando prueba',
+      'La evaluación se está enviando al dispositivo.',
     );
     startTest({
       patientId: patient.id,
       level: levelValueMap[testLevel],
     });
+
+    transitionTimerRef.current = window.setTimeout(() => {
+      setEvaluationStatus((current) =>
+        current === 'sending' ? 'running' : current,
+      );
+      transitionTimerRef.current = null;
+    }, 1000);
   };
 
   if (loading) return <div className="p-6">Cargando...</div>;
@@ -197,36 +284,157 @@ export function PatientDetailsPage() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.08 }}
-        className="rounded-2xl border border-border bg-white p-5 shadow-card"
+        className="overflow-hidden rounded-lg border border-border bg-white shadow-sm"
       >
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-semibold text-foreground">Prueba de Tiempo de Reacción</h2>
-              <Badge variant={isEsp32Connected ? 'success' : 'muted'}>
-                <span className={cn('h-1.5 w-1.5 rounded-full mr-1', isEsp32Connected ? 'bg-[#2E7D32]' : 'bg-slate-400')} />
-                {isEsp32Connected ? 'ESP32 conectado' : 'ESP32 desconectado'}
-              </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Configure el nivel de dificultad e inicie una nueva prueba para este paciente.
-            </p>
-            {!isEsp32Connected && (
-              <p className="text-sm font-medium text-rose-600">
-                No hay ningún dispositivo ESP32 conectado.
-              </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-slate-50/80 px-5 py-3">
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-600">
+            Estado de la evaluación
+          </span>
+          <div
+            className={cn(
+              'inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-sm font-semibold transition-colors duration-200',
+              currentEvaluationStatus.className,
             )}
-            {isTestRunning && (
-              <p className="text-sm font-medium text-sky-700">
-                Esperando resultado del dispositivo...
+            role="status"
+            aria-live="polite"
+          >
+            <EvaluationStatusIcon
+              className={cn(
+                'h-4 w-4',
+                evaluationStatus === 'sending' && 'animate-spin',
+              )}
+              aria-hidden="true"
+            />
+            {currentEvaluationStatus.label}
+          </div>
+        </div>
+
+        <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,520px)] lg:items-start">
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-semibold text-foreground">
+                  Prueba de Tiempo de Reacción
+                </h2>
+                <Badge variant={isEsp32Connected ? 'success' : 'muted'}>
+                  <span
+                    className={cn(
+                      'mr-1 h-1.5 w-1.5 rounded-full',
+                      isEsp32Connected ? 'bg-[#2E7D32]' : 'bg-slate-400',
+                    )}
+                  />
+                  {isEsp32Connected ? 'ESP32 conectado' : 'ESP32 desconectado'}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Seleccione un nivel y presione “Iniciar prueba”.
               </p>
+            </div>
+
+            {evaluationStatus === 'sending' && (
+              <div
+                className="flex items-center gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900"
+                role="status"
+                aria-live="polite"
+              >
+                <LoaderCircle className="h-5 w-5 shrink-0 animate-spin" aria-hidden="true" />
+                <div>
+                  <p className="text-sm font-semibold">Enviando prueba al dispositivo...</p>
+                  <p className="mt-0.5 text-xs text-amber-800">
+                    Espere mientras se prepara la evaluación.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {evaluationStatus === 'running' && (
+              <div
+                className="rounded-md border border-blue-200 bg-blue-50/60"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="flex items-center gap-2 border-b border-blue-200 px-4 py-3 text-blue-900">
+                  <Brain className="h-5 w-5" aria-hidden="true" />
+                  <p className="text-sm font-bold tracking-wide">PRUEBA EN CURSO</p>
+                </div>
+                <dl className="grid gap-x-6 gap-y-3 px-4 py-4 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs font-medium text-slate-500">Paciente</dt>
+                    <dd className="mt-0.5 text-sm font-semibold text-slate-900">
+                      {patient.fullName}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-slate-500">Nivel</dt>
+                    <dd className="mt-0.5 text-sm font-semibold text-slate-900">
+                      {levelLabelMap[testLevel]}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-slate-500">Dispositivo</dt>
+                    <dd className="mt-0.5 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                      <span className="h-2 w-2 rounded-full bg-[#2E7D32]" aria-hidden="true" />
+                      ESP32 conectado
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium text-slate-500">Estado</dt>
+                    <dd className="mt-0.5 flex items-center gap-2 text-sm font-semibold text-blue-700">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-[#2563EB]" aria-hidden="true" />
+                      Ejecutando evaluación...
+                    </dd>
+                  </div>
+                </dl>
+                <div className="border-t border-blue-200 bg-white/70 px-4 py-3 text-sm text-slate-700">
+                  <p className="font-medium">Espere a que el paciente complete la prueba.</p>
+                  <p className="mt-1 text-slate-600">
+                    Los resultados se registrarán automáticamente.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {evaluationStatus === 'finished' && (
+              <div
+                className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-4"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="flex items-center gap-2 text-emerald-800">
+                  <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+                  <p className="text-sm font-bold tracking-wide">PRUEBA FINALIZADA</p>
+                </div>
+                <div className="mt-3 flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <LoaderCircle className="h-4 w-4 animate-spin text-emerald-700" aria-hidden="true" />
+                  Procesando resultados...
+                </div>
+              </div>
+            )}
+
+            {evaluationStatus === 'error' && (
+              <div
+                className="flex items-start gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-red-800"
+                role="alert"
+              >
+                <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+                <div>
+                  <p className="text-sm font-semibold">No se puede iniciar la evaluación</p>
+                  <p className="mt-0.5 text-xs text-red-700">
+                    No hay ningún dispositivo ESP32 conectado.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-[220px_1fr] sm:items-end lg:w-[520px]">
+          <div className="grid gap-4 sm:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)] sm:items-end">
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Nivel</label>
-              <Select value={testLevel} onValueChange={(value) => setTestLevel(value as '1' | '2' | '3' | '4')}>
+              <Select
+                value={testLevel}
+                disabled={isEvaluationLocked}
+                onValueChange={(value) => setTestLevel(value as '1' | '2' | '3' | '4')}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccione nivel" />
                 </SelectTrigger>
@@ -245,13 +453,23 @@ export function PatientDetailsPage() {
             <Button
               size="lg"
               className="w-full"
-              disabled={!isEsp32Connected || isTestRunning}
+              disabled={!isEsp32Connected || isEvaluationLocked}
               onClick={handleStartTest}
             >
-              {isTestRunning ? (
+              {evaluationStatus === 'sending' ? (
                 <>
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Iniciando...
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                  Enviando...
+                </>
+              ) : evaluationStatus === 'running' ? (
+                <>
+                  <Brain className="h-4 w-4" />
+                  Prueba en curso...
+                </>
+              ) : evaluationStatus === 'finished' ? (
+                <>
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                  Procesando...
                 </>
               ) : (
                 <>
@@ -304,9 +522,32 @@ export function PatientDetailsPage() {
                     <Pencil className="h-4 w-4" />
                     Editar
                   </Button>
-                  <Button variant="outline" onClick={handleStartTest}>
-                    <HeartPulse className="h-4 w-4" />
-                    Iniciar prueba
+                  <Button
+                    variant="outline"
+                    disabled={!isEsp32Connected || isEvaluationLocked}
+                    onClick={handleStartTest}
+                  >
+                    {evaluationStatus === 'sending' ? (
+                      <>
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Enviando...
+                      </>
+                    ) : evaluationStatus === 'running' ? (
+                      <>
+                        <Brain className="h-4 w-4" />
+                        Prueba en curso...
+                      </>
+                    ) : evaluationStatus === 'finished' ? (
+                      <>
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                        Procesando...
+                      </>
+                    ) : (
+                      <>
+                        <HeartPulse className="h-4 w-4" />
+                        Iniciar prueba
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
