@@ -212,10 +212,11 @@ export function ReportsPage() {
         documentTitle: 'Reporte de tiempos de reacción - RefleAct',
       });
       success(
-        'Reporte generado correctamente.',
+        'Reporte PDF descargado correctamente.',
         `Se descargó ${getReportFilename(generationDate)}.`,
       );
-    } catch {
+    } catch (exportError) {
+      console.error('[ReportsPage] No se pudo generar el PDF.', exportError);
       error('No se pudo generar el PDF.', 'Intente nuevamente en unos momentos.');
     } finally {
       reportRef.current?.classList.remove('report-exporting');

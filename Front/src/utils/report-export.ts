@@ -95,7 +95,7 @@ export async function exportReportElementToPdf({
   const canvas = await html2canvas(element, {
     backgroundColor: '#ffffff',
     logging: false,
-    scale: Math.min(Math.max(window.devicePixelRatio, 2), 3),
+    scale: 2,
     useCORS: true,
     windowWidth: Math.max(document.documentElement.clientWidth, element.scrollWidth),
     onclone: (clonedDocument) => {
@@ -176,5 +176,23 @@ export async function exportReportElementToPdf({
     );
   });
 
-  pdf.save(filename);
+  const pdfBlob = pdf.output('blob');
+  if (pdfBlob.size === 0) {
+    throw new Error('jsPDF generó un archivo vacío.');
+  }
+
+  const downloadUrl = URL.createObjectURL(pdfBlob);
+  const downloadLink = document.createElement('a');
+  downloadLink.href = downloadUrl;
+  downloadLink.download = filename;
+  downloadLink.rel = 'noopener';
+  downloadLink.style.display = 'none';
+  document.body.appendChild(downloadLink);
+
+  try {
+    downloadLink.click();
+  } finally {
+    downloadLink.remove();
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 60_000);
+  }
 }
