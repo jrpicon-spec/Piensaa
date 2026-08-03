@@ -77,8 +77,13 @@ export class PatientsService {
       );
     }
 
-    const items = ((data ?? []) as Array<Record<string, unknown>>).map((row) =>
-      this.mapPatient(row),
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    const lastEvaluations = await this.getLastEvaluations(
+      admin,
+      rows.map((row) => String(row['id'])),
+    );
+    const items = rows.map((row) =>
+      this.mapPatient(row, lastEvaluations.get(String(row['id'])) ?? null),
     );
 
     return { items, total: count ?? items.length, page, limit };
@@ -105,7 +110,9 @@ export class PatientsService {
       throw new NotFoundException(`Paciente con id "${id}" no encontrado`);
     }
 
-    const patient = this.mapPatient(data as unknown as Record<string, unknown>);
+    const row = data as unknown as Record<string, unknown>;
+    const lastEvaluations = await this.getLastEvaluations(admin, [id]);
+    const patient = this.mapPatient(row, lastEvaluations.get(id) ?? null);
 
     this.ensureAccess(patient, currentUser);
 
@@ -229,7 +236,10 @@ export class PatientsService {
       );
     }
 
-    return this.mapPatient(data as unknown as Record<string, unknown>);
+    return this.mapPatient(
+      data as unknown as Record<string, unknown>,
+      existing.lastEvaluationAt ?? null,
+    );
   }
 
   async remove(
@@ -286,7 +296,53 @@ export class PatientsService {
     }
   }
 
-  private mapPatient(row: Record<string, unknown>): PatientResponse {
+  private async getLastEvaluations(
+    admin: ReturnType<SupabaseService['getAdminClient']>,
+    patientIds: string[],
+  ): Promise<Map<string, string>> {
+    const result = new Map<string, string>();
+    if (patientIds.length === 0) return result;
+
+    const { data, error } = await admin
+      .from('mediciones')
+      .select('paciente_id, fecha, created_at')
+      .in('paciente_id', patientIds)
+      .order('fecha', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new BadRequestException(
+        `No se pudo obtener la última evaluación: ${error.message}`,
+      );
+    }
+
+    const rows = [...((data ?? []) as Array<Record<string, unknown>>)].sort(
+      (a, b) => this.measurementTimestamp(b) - this.measurementTimestamp(a),
+    );
+    for (const row of rows) {
+      const patientId = String(row['paciente_id'] ?? '');
+      const evaluationAt = row['fecha'] ?? row['created_at'];
+      if (
+        patientId &&
+        typeof evaluationAt === 'string' &&
+        !result.has(patientId)
+      ) {
+        result.set(patientId, evaluationAt);
+      }
+    }
+    return result;
+  }
+
+  private measurementTimestamp(row: Record<string, unknown>): number {
+    const value = row['fecha'] ?? row['created_at'];
+    const timestamp = typeof value === 'string' ? Date.parse(value) : NaN;
+    return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
+  }
+
+  private mapPatient(
+    row: Record<string, unknown>,
+    lastEvaluationAt: string | null = null,
+  ): PatientResponse {
     return {
       id: String(row['id']),
       nombre: String(row['nombre'] ?? ''),
@@ -300,6 +356,7 @@ export class PatientsService {
       cuidador_id: (row['cuidador_id'] as string | null) ?? null,
       estado: (row['estado'] as string | null) ?? 'normal',
       created_at: row['created_at'] ? String(row['created_at']) : undefined,
+      lastEvaluationAt,
     };
   }
 }

@@ -34,14 +34,14 @@ import {
 import { patientsService, type Patient } from '@/services/patients.service';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useSocket } from '@/contexts/SocketContext';
+import { useSocket, type TestFinishedPayload } from '@/contexts/SocketContext';
 import type { PatientStatus } from '@/types';
 
 export function MyPatientsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { success, error: showError } = useToast();
-  const { startTest } = useSocket();
+  const { socket, startTest } = useSocket();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | PatientStatus>('all');
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -64,6 +64,27 @@ export function MyPatientsPage() {
     }
     if (user) fetchData();
   }, [user]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const onTestFinished = (payload: TestFinishedPayload) => {
+      setPatients((current) =>
+        current.map((patient) =>
+          patient.id === payload.measurement.patientId
+            ? {
+                ...patient,
+                lastEvaluation: payload.measurement.date,
+                lastEvaluationAt: payload.measurement.date,
+              }
+            : patient,
+        ),
+      );
+    };
+    socket.on('testFinished', onTestFinished);
+    return () => {
+      socket.off('testFinished', onTestFinished);
+    };
+  }, [socket]);
 
   if (!user) return null;
 

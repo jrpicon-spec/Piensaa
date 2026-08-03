@@ -159,6 +159,7 @@ export class PatientResponse {
   cuidador_id?: string | null;
   estado?: string | null;
   created_at?: string;
+  lastEvaluationAt?: string | null;
 }
 
 export class PaginatedPatients {

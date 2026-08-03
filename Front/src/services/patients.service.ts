@@ -17,6 +17,7 @@ export interface Patient {
   status: 'normal' | 'atencion' | 'riesgo';
   caregiverId?: string;
   lastEvaluation?: string;
+  lastEvaluationAt?: string;
   createdAt?: string;
 }
 
@@ -34,6 +35,7 @@ interface BackendPatient {
   cuidador_id?: string | null;
   estado?: string | null;
   created_at?: string;
+  lastEvaluationAt?: string | null;
 }
 
 interface PaginatedResponse {
@@ -45,6 +47,7 @@ interface PaginatedResponse {
 
 // Map backend patient to frontend patient
 function mapBackendPatient(p: BackendPatient): Patient {
+  const lastEvaluationAt = p.lastEvaluationAt ?? undefined;
   return {
     id: p.id,
     fullName: `${p.nombre} ${p.apellido}`.trim(),
@@ -57,7 +60,8 @@ function mapBackendPatient(p: BackendPatient): Patient {
     notes: p.observaciones ?? undefined,
     status: (p.estado as Patient['status']) ?? 'normal',
     caregiverId: p.cuidador_id ?? undefined,
-    lastEvaluation: undefined,
+    lastEvaluation: lastEvaluationAt,
+    lastEvaluationAt,
     createdAt: p.created_at,
   };
 }

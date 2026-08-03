@@ -17,7 +17,7 @@ import {
   generateAvatarUrl,
   getInitials,
   getStatusColor,
-  relativeTime,
+  formatDate,
 } from '@/utils';
 
 interface PatientCardProps {
@@ -85,7 +85,12 @@ export function PatientCard({ patient, index = 0, onEdit, onDelete, onView, onSt
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
-          <span className="truncate">Última eval: {patient.lastEvaluation ? relativeTime(patient.lastEvaluation) : 'Sin evaluaciones'}</span>
+          <span className="truncate">
+            Última eval:{' '}
+            {patient.lastEvaluationAt
+              ? formatDate(patient.lastEvaluationAt)
+              : 'Sin evaluaciones'}
+          </span>
         </div>
       </div>
 

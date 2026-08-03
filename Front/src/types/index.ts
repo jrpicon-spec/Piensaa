@@ -30,6 +30,7 @@ export interface Patient {
   status: PatientStatus;
   caregiverId?: string;
   lastEvaluation?: string;
+  lastEvaluationAt?: string;
   createdAt?: string;
 }
 

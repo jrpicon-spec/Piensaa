@@ -35,12 +35,14 @@ import {
 import { patientsService, type Patient } from '@/services/patients.service';
 import { usersService, type Caregiver } from '@/services/users.service';
 import { useToast } from '@/contexts/ToastContext';
+import { useSocket, type TestFinishedPayload } from '@/contexts/SocketContext';
 import type { PatientStatus } from '@/types';
 
 export function PatientsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { success, error: showError } = useToast();
+  const { socket } = useSocket();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [caregivers, setCaregivers] = useState<Caregiver[]>([]);
   const [search, setSearch] = useState('');
@@ -72,6 +74,27 @@ export function PatientsPage() {
     }
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    const onTestFinished = (payload: TestFinishedPayload) => {
+      setPatients((current) =>
+        current.map((patient) =>
+          patient.id === payload.measurement.patientId
+            ? {
+                ...patient,
+                lastEvaluation: payload.measurement.date,
+                lastEvaluationAt: payload.measurement.date,
+              }
+            : patient,
+        ),
+      );
+    };
+    socket.on('testFinished', onTestFinished);
+    return () => {
+      socket.off('testFinished', onTestFinished);
+    };
+  }, [socket]);
 
   const filtered = patients.filter((p) => {
     const matchesSearch =
