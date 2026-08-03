@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MeasurementsService } from './measurements.service';
 import { PatientsService } from '../patients/patients.service';
 import { SupabaseService } from '../supabase/supabase.service';
+import { UserRole } from '../common/enums/user-role.enum';
 
 describe('MeasurementsService', () => {
   let service: MeasurementsService;
@@ -96,5 +97,92 @@ describe('MeasurementsService', () => {
         boton_presionado: null,
       }),
     );
+  });
+
+  it('returns the caregiver assigned to each patient and null for missing relations', async () => {
+    const rows = [
+      {
+        id: 'measurement-with-caregiver',
+        paciente_id: 'patient-with-caregiver',
+        tiempo_reaccion: 850,
+        fecha: '2026-08-03T12:00:00.000Z',
+        paciente: {
+          id: 'patient-with-caregiver',
+          nombre: 'Carmen',
+          apellido: 'Rodas',
+          cuidador_id: 'caregiver-id',
+          cuidador: { id: 'caregiver-id', nombre: 'Paul Tigre' },
+        },
+      },
+      {
+        id: 'measurement-without-caregiver',
+        paciente_id: 'patient-without-caregiver',
+        tiempo_reaccion: 400,
+        fecha: '2026-08-03T12:01:00.000Z',
+        paciente: {
+          id: 'patient-without-caregiver',
+          nombre: 'Ana',
+          apellido: 'Mora',
+          cuidador_id: null,
+          cuidador: null,
+        },
+      },
+      {
+        id: 'measurement-with-invalid-relation',
+        paciente_id: 'missing-patient',
+        tiempo_reaccion: 300,
+        fecha: '2026-08-03T12:02:00.000Z',
+        paciente: null,
+      },
+    ];
+    const query = {
+      select: jest.fn(),
+      order: jest.fn(),
+      range: jest.fn().mockResolvedValue({
+        data: rows,
+        error: null,
+        count: rows.length,
+      }),
+    };
+    query.select.mockReturnValue(query);
+    query.order.mockReturnValue(query);
+
+    const admin = { from: jest.fn(() => query) };
+    const testedService = new MeasurementsService(
+      { getAdminClient: () => admin } as unknown as SupabaseService,
+      {} as PatientsService,
+    );
+
+    const result = await testedService.findAll(
+      {},
+      {
+        id: 'admin-id',
+        authId: 'admin-id',
+        email: 'admin@example.com',
+        nombre: 'Admin',
+        rol: UserRole.ADMIN,
+      },
+    );
+
+    expect(query.select).toHaveBeenCalledWith(
+      expect.stringContaining('pacientes!mediciones_paciente_id_fkey'),
+      { count: 'exact' },
+    );
+    expect(query.select).toHaveBeenCalledWith(
+      expect.stringContaining('profiles!pacientes_cuidador_id_fkey'),
+      { count: 'exact' },
+    );
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        caregiverName: 'Paul Tigre',
+        paciente: expect.objectContaining({
+          nombre: 'Carmen',
+          apellido: 'Rodas',
+          cuidador: { id: 'caregiver-id', nombre: 'Paul Tigre' },
+        }),
+      }),
+    );
+    expect(result.items[1]?.caregiverName).toBeNull();
+    expect(result.items[2]?.caregiverName).toBeNull();
   });
 });

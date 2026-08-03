@@ -10,7 +10,15 @@ export interface Measurement {
   time: string;
   status: 'normal' | 'atencion' | 'riesgo';
   patientName?: string;
+  caregiverName: string | null;
   deviceId?: string;
+}
+
+interface BackendMeasurementPatient {
+  id: string;
+  nombre: string;
+  apellido?: string;
+  cuidador?: { id: string; nombre: string } | null;
 }
 
 interface BackendMeasurement {
@@ -20,6 +28,8 @@ interface BackendMeasurement {
   fecha: string;
   created_at?: string;
   estado?: 'normal' | 'atencion' | 'riesgo';
+  paciente?: BackendMeasurementPatient | null;
+  caregiverName?: string | null;
 }
 
 interface BackendMeasurementList {
@@ -56,6 +66,10 @@ function mapBackendMeasurement(m: BackendMeasurement): Measurement {
     date: isValidDate ? dateTime.toISOString().slice(0, 10) : m.fecha.slice(0, 10),
     time: isValidDate ? dateTime.toISOString().slice(11, 19) : '00:00:00',
     status: m.estado ?? (m.tiempo_reaccion < 350 ? 'normal' : m.tiempo_reaccion < 500 ? 'atencion' : 'riesgo'),
+    patientName: m.paciente
+      ? `${m.paciente.nombre} ${m.paciente.apellido ?? ''}`.trim()
+      : undefined,
+    caregiverName: m.caregiverName ?? m.paciente?.cuidador?.nombre ?? null,
   };
 }
 

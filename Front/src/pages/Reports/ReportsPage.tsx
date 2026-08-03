@@ -448,7 +448,9 @@ export function ReportsPage() {
                       <td className="px-6 py-3 text-foreground">{formatDate(r.date)}</td>
                       <td className="px-6 py-3 text-muted-foreground font-mono">{r.time}</td>
                       <td className="px-6 py-3 text-foreground">{p?.fullName ?? '—'}</td>
-                      <td className="px-6 py-3 text-muted-foreground">—</td>
+                      <td className="px-6 py-3 text-muted-foreground">
+                        {r.caregiverName || 'Sin asignar'}
+                      </td>
                       <td className="px-6 py-3 font-semibold tabular-nums text-foreground">{r.reactionMs} ms</td>
                       <td className="px-6 py-3">
                         <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold', colors.bg, colors.text)}>

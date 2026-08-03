@@ -21,6 +21,20 @@ import { UserRole } from '../common/enums/user-role.enum';
 const THRESHOLD_NORMAL = 350;
 const THRESHOLD_ATENCION = 500;
 
+const MEASUREMENT_REPORT_SELECT = `
+  *,
+  paciente:pacientes!mediciones_paciente_id_fkey(
+    id,
+    nombre,
+    apellido,
+    cuidador_id,
+    cuidador:profiles!pacientes_cuidador_id_fkey(
+      id,
+      nombre
+    )
+  )
+`;
+
 export interface DeviceMeasurementData {
   patientId: string;
   reactionTime: number;
@@ -159,7 +173,7 @@ export class MeasurementsService {
 
     let query = admin
       .from('mediciones')
-      .select('*', { count: 'exact' })
+      .select(MEASUREMENT_REPORT_SELECT, { count: 'exact' })
       .order('fecha', { ascending: false })
       .range(offset, to);
 
@@ -419,6 +433,13 @@ export class MeasurementsService {
 
   private mapMeasurement(row: Record<string, unknown>): MeasurementResponse {
     const tiempo = Number(row['tiempo_reaccion'] ?? 0);
+    const patient = this.singleRelation(row['paciente']);
+    const caregiver = this.singleRelation(patient?.['cuidador']);
+    const caregiverName =
+      typeof caregiver?.['nombre'] === 'string' && caregiver['nombre'].trim()
+        ? caregiver['nombre']
+        : null;
+
     return {
       id: String(row['id']),
       paciente_id: String(row['paciente_id']),
@@ -447,7 +468,28 @@ export class MeasurementsService {
             ? null
             : Number(row['boton_presionado']),
       timeout: typeof row['timeout'] === 'boolean' ? row['timeout'] : undefined,
+      paciente: patient
+        ? {
+            id: String(patient['id']),
+            nombre: String(patient['nombre'] ?? ''),
+            apellido: String(patient['apellido'] ?? ''),
+            cuidador: caregiver
+              ? {
+                  id: String(caregiver['id']),
+                  nombre: caregiverName ?? '',
+                }
+              : null,
+          }
+        : null,
+      caregiverName,
     };
+  }
+
+  private singleRelation(value: unknown): Record<string, unknown> | null {
+    const relation = Array.isArray(value) ? value[0] : value;
+    return relation && typeof relation === 'object'
+      ? (relation as Record<string, unknown>)
+      : null;
   }
 
   private supabaseErrorDetails(error: unknown): string {

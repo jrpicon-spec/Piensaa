@@ -50,4 +50,11 @@ export class MeasurementResponse {
   boton_correcto?: number | null;
   boton_presionado?: number | null;
   timeout?: boolean;
+  paciente?: {
+    id: string;
+    nombre: string;
+    apellido: string;
+    cuidador: { id: string; nombre: string } | null;
+  } | null;
+  caregiverName?: string | null;
 }
