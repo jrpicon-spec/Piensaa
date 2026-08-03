@@ -15,6 +15,12 @@ import { PageHeader, EmptyState } from '@/components/ui/PageHeader';
 import { PatientCard } from '@/components/patients/PatientCard';
 import { PatientFormModal } from '@/components/patients/PatientFormModal';
 import {
+  buildCreatePatientPayload,
+  buildUpdatePatientPayload,
+  type CreatePatientPayload,
+  type UpdatePatientPayload,
+} from '@/components/patients/patient-payloads';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -66,35 +72,25 @@ export function MyPatientsPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const openCreateModal = () => {
+    setEditing(null);
+    setModalOpen(true);
+  };
+
+  const handlePatientModalOpenChange = (open: boolean) => {
+    setModalOpen(open);
+    if (!open) setEditing(null);
+  };
+
   const handleSave = async (patient: Patient) => {
     if (editing) {
-        const [nombre, ...apellidoParts] = patient.fullName.split(' ');
-        const apellido = apellidoParts.join(' ');
-        const updated = await patientsService.update(patient.id, {
-          nombre,
-          apellido,
-          telefono: patient.phone,
-          direccion: patient.address,
-          responsable: patient.guardianName,
-          observaciones: patient.notes,
-          estado: patient.status,
-        });
-        setPatients((current) => current.map((p) => (p.id === patient.id ? updated : p)));
-      } else {
-        const [nombre, ...apellidoParts] = patient.fullName.split(' ');
-        const apellido = apellidoParts.join(' ');
-        const created = await patientsService.create({
-          nombre,
-          apellido,
-          fecha_nacimiento: patient.birthDate,
-          sexo: patient.gender,
-          telefono: patient.phone,
-          direccion: patient.address,
-          responsable: patient.guardianName,
-          observaciones: patient.notes,
-          cuidador_id: user.id,
-        });
-        setPatients((current) => [created, ...current]);
+      const payload: UpdatePatientPayload = buildUpdatePatientPayload(patient);
+      const updated = await patientsService.update(patient.id, payload);
+      setPatients((current) => current.map((p) => (p.id === patient.id ? updated : p)));
+    } else {
+      const payload: CreatePatientPayload = buildCreatePatientPayload(patient, user.id);
+      const created = await patientsService.create(payload);
+      setPatients((current) => [created, ...current]);
     }
   };
 
@@ -122,10 +118,7 @@ export function MyPatientsPage() {
         description="Lista de pacientes asignados a tu cuidado. Registra nuevos pacientes y da seguimiento a su evolución."
         actions={
           <Button
-            onClick={() => {
-              setEditing(null);
-              setModalOpen(true);
-            }}
+            onClick={openCreateModal}
           >
             <Plus className="h-4 w-4" />
             Nuevo paciente
@@ -189,7 +182,7 @@ export function MyPatientsPage() {
           title="No tienes pacientes asignados"
           description="Registra un nuevo paciente para iniciar el seguimiento."
           action={
-            <Button onClick={() => setModalOpen(true)}>
+            <Button onClick={openCreateModal}>
               <Plus className="h-4 w-4" /> Nuevo paciente
             </Button>
           }
@@ -215,7 +208,7 @@ export function MyPatientsPage() {
 
       <PatientFormModal
         open={modalOpen}
-        onOpenChange={setModalOpen}
+        onOpenChange={handlePatientModalOpenChange}
         patient={editing}
         onSave={handleSave}
       />

@@ -76,6 +76,11 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
 
   const isEdit = !!patient;
 
+  const handleValidationFailed = (validationErrors: Record<string, string>) => {
+    setErrors(validationErrors);
+    warning('Revisa los campos del formulario', Object.values(validationErrors)[0]);
+  };
+
   useEffect(() => {
     if (open) {
       if (patient) {
@@ -133,8 +138,7 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
     }
 
     if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      warning('Revisa los campos del formulario', Object.values(newErrors)[0]);
+      handleValidationFailed(newErrors);
       return;
     }
 

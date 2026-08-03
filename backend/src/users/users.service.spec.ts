@@ -6,6 +6,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserRole } from '../common/enums/user-role.enum';
 import { SupabaseService } from '../supabase/supabase.service';
+import { CreateUserDto } from './dto/create-user.dto';
 import { ManagedUser, UsersService } from './users.service';
 
 type DeletionInternals = {
@@ -15,10 +16,13 @@ type DeletionInternals = {
 
 describe('UsersService', () => {
   let service: UsersService;
+  let createAuthUser: jest.Mock;
   let getUserById: jest.Mock;
   let deleteAuthUser: jest.Mock;
   let deleteProfile: jest.Mock;
   let restoreProfile: jest.Mock;
+  let updateProfile: jest.Mock;
+  let updateProfileFields: jest.Mock;
 
   const adminUser = {
     id: 'current-admin-id',
@@ -47,6 +51,10 @@ describe('UsersService', () => {
   };
 
   beforeEach(async () => {
+    createAuthUser = jest.fn().mockResolvedValue({
+      data: { user: { id: 'created-user-id' } },
+      error: null,
+    });
     getUserById = jest.fn().mockResolvedValue({
       data: { user: { id: 'target-id' } },
       error: null,
@@ -57,10 +65,27 @@ describe('UsersService', () => {
       error: null,
     });
     restoreProfile = jest.fn().mockResolvedValue({ error: null });
+    updateProfile = jest.fn().mockResolvedValue({
+      data: {
+        id: 'created-user-id',
+        nombre: 'Usuario creado',
+        email: 'created@example.com',
+        rol: UserRole.CUIDADOR,
+        telefono: '0999999999',
+        estado: 'activo',
+      },
+      error: null,
+    });
+    updateProfileFields = jest.fn(() => ({
+      eq: () => ({
+        select: () => ({ single: updateProfile }),
+      }),
+    }));
 
     const adminClient = {
       auth: {
         admin: {
+          createUser: createAuthUser,
           getUserById,
           deleteUser: deleteAuthUser,
         },
@@ -76,6 +101,7 @@ describe('UsersService', () => {
             }),
           }),
           upsert: restoreProfile,
+          update: updateProfileFields,
         };
       }),
     };
@@ -93,6 +119,17 @@ describe('UsersService', () => {
     service = module.get<UsersService>(UsersService);
   });
 
+  function createDto(rol: UserRole): CreateUserDto {
+    return {
+      nombre: 'Usuario creado',
+      email: 'created@example.com',
+      password: 'Password1!',
+      rol,
+      telefono: '0999999999',
+      estado: 'activo',
+    };
+  }
+
   function mockDeletionChecks(
     user: ManagedUser,
     activeAdmins: number,
@@ -105,6 +142,84 @@ describe('UsersService', () => {
       .spyOn(internals, 'countAssignedPatients')
       .mockResolvedValue(assignedPatients);
   }
+
+  it('crea un administrador mediante Auth y el trigger conserva nombre y rol', async () => {
+    const dto = createDto(UserRole.ADMIN);
+    updateProfile.mockResolvedValue({
+      data: { id: 'created-user-id', ...dto, password: undefined },
+      error: null,
+    });
+
+    await expect(service.create(dto)).resolves.toMatchObject({
+      id: 'created-user-id',
+      nombre: dto.nombre,
+      rol: UserRole.ADMIN,
+    });
+    expect(createAuthUser).toHaveBeenCalledWith({
+      email: dto.email,
+      password: dto.password,
+      email_confirm: true,
+      user_metadata: { nombre: dto.nombre, rol: UserRole.ADMIN },
+    });
+    expect(updateProfileFields).toHaveBeenCalledWith({
+      telefono: dto.telefono,
+      estado: dto.estado,
+    });
+  });
+
+  it('crea un cuidador mediante Auth y el trigger conserva nombre y rol', async () => {
+    const dto = createDto(UserRole.CUIDADOR);
+
+    await expect(service.create(dto)).resolves.toMatchObject({
+      id: 'created-user-id',
+      nombre: dto.nombre,
+      rol: UserRole.CUIDADOR,
+    });
+    expect(createAuthUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_metadata: { nombre: dto.nombre, rol: UserRole.CUIDADOR },
+      }),
+    );
+  });
+
+  it('devuelve el error real de Auth para un correo duplicado', async () => {
+    const authError =
+      'A user with this email address has already been registered';
+    createAuthUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: authError },
+    });
+
+    await expect(service.create(createDto(UserRole.CUIDADOR))).rejects.toThrow(
+      authError,
+    );
+    expect(updateProfileFields).not.toHaveBeenCalled();
+    expect(deleteAuthUser).not.toHaveBeenCalled();
+  });
+
+  it('elimina el usuario Auth si falla el update adicional del perfil', async () => {
+    updateProfile.mockResolvedValue({
+      data: null,
+      error: { message: 'profiles update failed' },
+    });
+
+    await expect(service.create(createDto(UserRole.CUIDADOR))).rejects.toThrow(
+      'profiles update failed',
+    );
+    expect(deleteAuthUser).toHaveBeenCalledWith('created-user-id');
+  });
+
+  it('conserva el error del update aunque falle la compensación', async () => {
+    updateProfile.mockResolvedValue({
+      data: null,
+      error: { message: 'profiles update failed' },
+    });
+    deleteAuthUser.mockRejectedValue(new Error('Auth delete unavailable'));
+
+    await expect(service.create(createDto(UserRole.ADMIN))).rejects.toThrow(
+      'profiles update failed',
+    );
+  });
 
   it('permite que un admin elimine un cuidador sin pacientes', async () => {
     mockDeletionChecks(caregiver, 2, 0);

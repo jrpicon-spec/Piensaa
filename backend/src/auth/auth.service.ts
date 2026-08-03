@@ -76,14 +76,16 @@ export class AuthService {
       email: dto.email,
       password: dto.password,
       email_confirm: true,
+      user_metadata: {
+        nombre: dto.nombre,
+        rol: UserRole.CUIDADOR,
+      },
     });
 
-    this.logger.debug(`[REGISTER ${requestId}] createUser - data completo:`);
-    console.dir(data, { depth: null });
-
     if (error) {
-      this.logger.error(`[REGISTER ${requestId}] createUser - error`);
-      console.dir(error, { depth: null });
+      this.logger.error(
+        `[REGISTER ${requestId}] createUser - error: ${error.message}`,
+      );
     }
     this.logger.debug(
       `[REGISTER ${requestId}] createUser - userId=${data?.user?.id ?? 'null'} email=${data?.user?.email ?? 'null'}`,
@@ -97,100 +99,6 @@ export class AuthService {
 
     const authUserId = data.user.id;
     this.logger.log(`[REGISTER ${requestId}] authUserId=${authUserId}`);
-
-    const { data: existingProfile, error: existingProfileError } = await admin
-      .from('profiles')
-      .select('id, nombre, email, rol')
-      .eq('id', authUserId)
-      .maybeSingle();
-
-    if (existingProfileError) {
-      this.logger.error(`[REGISTER ${requestId}] profiles select - error`);
-      console.dir(existingProfileError, { depth: null });
-    } else {
-      this.logger.debug(
-        `[REGISTER ${requestId}] profiles select - existe=${existingProfile ? 'sí' : 'no'}`,
-      );
-    }
-
-    if (existingProfile) {
-      this.logger.warn(
-        `[REGISTER ${requestId}] El perfil ya existe para authUserId=${authUserId}. Posible trigger/función en BD o petición duplicada. Se actualizará el perfil.`,
-      );
-
-      const { error: updateError } = await admin
-        .from('profiles')
-        .update({
-          nombre: dto.nombre,
-          email: dto.email,
-          rol: UserRole.CUIDADOR,
-        })
-        .eq('id', authUserId);
-
-      if (updateError) {
-        this.logger.error(`[REGISTER ${requestId}] profiles update - error`);
-        console.dir(updateError, { depth: null });
-        throw new ConflictException(
-          `No se pudo actualizar el perfil existente: ${updateError.message}`,
-        );
-      }
-
-      this.logger.log(`[REGISTER ${requestId}] profiles update - OK`);
-    } else {
-      this.logger.debug(`[REGISTER ${requestId}] profiles insert - antes`);
-      const { error: profileError } = await admin.from('profiles').insert({
-        id: authUserId,
-        nombre: dto.nombre,
-        email: dto.email,
-        rol: UserRole.CUIDADOR,
-      });
-
-      if (profileError) {
-        this.logger.error(`[REGISTER ${requestId}] profiles insert - error`);
-        console.dir(profileError, { depth: null });
-
-        const duplicatePk =
-          typeof (profileError as { code?: unknown }).code === 'string' &&
-          String((profileError as { code?: string }).code) === '23505';
-        const duplicateMessage =
-          typeof profileError.message === 'string' &&
-          profileError.message.includes('duplicate key value') &&
-          profileError.message.includes('profiles_pkey');
-
-        if (duplicatePk || duplicateMessage) {
-          this.logger.warn(
-            `[REGISTER ${requestId}] profiles insert - duplicate PK detectado. Se intentará actualizar el perfil existente en lugar de revertir el usuario.`,
-          );
-
-          const { error: updateError } = await admin
-            .from('profiles')
-            .update({
-              nombre: dto.nombre,
-              email: dto.email,
-              rol: UserRole.CUIDADOR,
-            })
-            .eq('id', authUserId);
-
-          if (updateError) {
-            this.logger.error(
-              `[REGISTER ${requestId}] profiles update (tras duplicate) - error`,
-            );
-            console.dir(updateError, { depth: null });
-            throw new ConflictException(
-              `No se pudo crear/actualizar el perfil: ${updateError.message}`,
-            );
-          }
-        } else {
-          // Si falla por otra razón, revertir el usuario creado
-          await admin.auth.admin.deleteUser(authUserId).catch(() => undefined);
-          throw new ConflictException(
-            `No se pudo crear el perfil: ${profileError.message}`,
-          );
-        }
-      }
-
-      this.logger.log(`[REGISTER ${requestId}] profiles insert - OK`);
-    }
 
     const profile = await this.fetchProfile(admin, authUserId, dto.email);
     this.logger.log(`[REGISTER ${requestId}] OK - profileId=${profile.id}`);

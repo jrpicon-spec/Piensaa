@@ -103,18 +103,15 @@ export class UsersService {
 
   async create(dto: CreateUserDto): Promise<ManagedUser> {
     const admin = this.supabaseService.getAdminClient();
-    const { data: existing } = await admin
-      .from('profiles')
-      .select('id')
-      .ilike('email', dto.email)
-      .maybeSingle();
-    if (existing) throw new ConflictException('El correo ya está registrado.');
-
     const { data: authData, error: authError } =
       await admin.auth.admin.createUser({
         email: dto.email,
         password: dto.password,
         email_confirm: true,
+        user_metadata: {
+          nombre: dto.nombre,
+          rol: dto.rol,
+        },
       });
     if (authError || !authData?.user) {
       throw new BadRequestException(
@@ -122,29 +119,35 @@ export class UsersService {
       );
     }
     const authUserId = authData.user.id;
-    const { error: profileError } = await admin.from('profiles').insert({
-      id: authUserId,
-      nombre: dto.nombre,
-      email: dto.email,
-      rol: dto.rol,
-      telefono: dto.telefono,
-      estado: dto.estado,
-    });
-    if (profileError) {
-      await admin.auth.admin.deleteUser(authUserId).catch(() => undefined);
+
+    // handle_new_user ya insertó nombre, email y rol. Solo completamos campos
+    // que el trigger no recibe, y devolvemos la fila para verificar el resultado.
+    const { data: profile, error: profileError } = await admin
+      .from('profiles')
+      .update({
+        telefono: dto.telefono,
+        estado: dto.estado,
+      })
+      .eq('id', authUserId)
+      .select('id, nombre, email, rol, telefono, estado, created_at')
+      .single();
+
+    if (profileError || !profile) {
+      await this.compensateCreatedAuthUser(admin, authUserId);
       throw new BadRequestException(
-        `No se pudo crear el perfil: ${profileError.message}`,
+        `No se pudo completar el perfil: ${profileError?.message ?? 'el trigger no creó el perfil.'}`,
       );
     }
-    return {
-      id: authUserId,
-      nombre: dto.nombre,
-      email: dto.email,
-      rol: dto.rol,
-      telefono: dto.telefono,
-      estado: dto.estado,
-      patientsCount: 0,
-    };
+
+    const row = profile as unknown as Record<string, unknown>;
+    if (row['nombre'] !== dto.nombre || row['rol'] !== dto.rol) {
+      await this.compensateCreatedAuthUser(admin, authUserId);
+      throw new InternalServerErrorException(
+        'El trigger creó el perfil con nombre o rol incorrectos.',
+      );
+    }
+
+    return this.mapProfile(row);
   }
 
   async update(
@@ -414,6 +417,27 @@ export class UsersService {
     this.logger.error(
       `[DELETE USER] operation=${operation} target=${targetId ?? 'n/a'} postgresCode=${this.getErrorCode(error) ?? 'n/a'} supabaseError=${JSON.stringify(details)}`,
     );
+  }
+
+  private async compensateCreatedAuthUser(
+    admin: ReturnType<SupabaseService['getAdminClient']>,
+    authUserId: string,
+  ): Promise<void> {
+    try {
+      const { error } = await admin.auth.admin.deleteUser(authUserId);
+      if (!error) return;
+      this.logSupabaseError(
+        'create_user_compensation_failed',
+        authUserId,
+        error,
+      );
+    } catch (error) {
+      this.logSupabaseError(
+        'create_user_compensation_failed',
+        authUserId,
+        error,
+      );
+    }
   }
 
   private async ensureAnotherActiveAdmin(excludedId: string): Promise<void> {

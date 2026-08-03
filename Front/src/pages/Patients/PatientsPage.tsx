@@ -16,6 +16,12 @@ import { EmptyState } from '@/components/ui/PageHeader';
 import { PatientCard } from '@/components/patients/PatientCard';
 import { PatientFormModal } from '@/components/patients/PatientFormModal';
 import {
+  buildCreatePatientPayload,
+  buildUpdatePatientPayload,
+  type CreatePatientPayload,
+  type UpdatePatientPayload,
+} from '@/components/patients/patient-payloads';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -81,34 +87,25 @@ export function PatientsPage() {
     riesgo: patients.filter((p) => p.status === 'riesgo').length,
   };
 
+  const openCreateModal = () => {
+    setEditingPatient(null);
+    setModalOpen(true);
+  };
+
+  const handlePatientModalOpenChange = (open: boolean) => {
+    setModalOpen(open);
+    if (!open) setEditingPatient(null);
+  };
+
   const handleSave = async (patient: Patient) => {
     if (editingPatient) {
-        const [nombre, ...apellidoParts] = patient.fullName.split(' ');
-        const apellido = apellidoParts.join(' ');
-        const updated = await patientsService.update(patient.id, {
-          nombre,
-          apellido,
-          telefono: patient.phone,
-          direccion: patient.address,
-          responsable: patient.guardianName,
-          observaciones: patient.notes,
-          estado: patient.status,
-        });
-        setPatients((current) => current.map((p) => (p.id === patient.id ? updated : p)));
-      } else {
-        const [nombre, ...apellidoParts] = patient.fullName.split(' ');
-        const apellido = apellidoParts.join(' ');
-        const created = await patientsService.create({
-          nombre,
-          apellido,
-          fecha_nacimiento: patient.birthDate,
-          sexo: patient.gender,
-          telefono: patient.phone,
-          direccion: patient.address,
-          responsable: patient.guardianName,
-          observaciones: patient.notes,
-        });
-        setPatients((current) => [created, ...current]);
+      const payload: UpdatePatientPayload = buildUpdatePatientPayload(patient);
+      const updated = await patientsService.update(patient.id, payload);
+      setPatients((current) => current.map((p) => (p.id === patient.id ? updated : p)));
+    } else {
+      const payload: CreatePatientPayload = buildCreatePatientPayload(patient);
+      const created = await patientsService.create(payload);
+      setPatients((current) => [created, ...current]);
     }
   };
 
@@ -137,10 +134,7 @@ export function PatientsPage() {
         description="Gestiona el registro de adultos mayores bajo cuidado. Los cuidadores son quienes registran a los pacientes."
         actions={
           <Button
-            onClick={() => {
-              setEditingPatient(null);
-              setModalOpen(true);
-            }}
+            onClick={openCreateModal}
           >
             <Plus className="h-4 w-4" />
             Nuevo paciente
@@ -217,7 +211,7 @@ export function PatientsPage() {
           title="No se encontraron pacientes"
           description="Intenta ajustar los filtros o registra un nuevo paciente."
           action={
-            <Button onClick={() => setModalOpen(true)}>
+            <Button onClick={openCreateModal}>
               <Plus className="h-4 w-4" /> Nuevo paciente
             </Button>
           }
@@ -242,7 +236,7 @@ export function PatientsPage() {
 
       <PatientFormModal
         open={modalOpen}
-        onOpenChange={setModalOpen}
+        onOpenChange={handlePatientModalOpenChange}
         patient={editingPatient}
         onSave={handleSave}
       />
