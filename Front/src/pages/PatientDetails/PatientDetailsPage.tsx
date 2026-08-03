@@ -260,7 +260,7 @@ export function PatientDetailsPage() {
     .slice(0, 14)
     .map((r) => ({
       label: formatDate(r.date),
-      value: r.reactionMs,
+      value: Number(r.reactionMs),
     }));
 
   const lastMeasurements = patientRecords.slice(0, 10).map((r) => ({
@@ -703,6 +703,7 @@ export function PatientDetailsPage() {
               title="Evolución temporal"
               description="Histórico de mediciones"
               data={evolutionData}
+              yAxisScale="reaction-time-ms"
             />
             <BarChartCard
               title="Últimas mediciones"

@@ -26,6 +26,41 @@ interface LineChartCardProps {
   index?: number;
   showArea?: boolean;
   presentation?: 'default' | 'statistics';
+  yAxisScale?: 'auto' | 'reaction-time-ms';
+}
+
+function getReactionTimeScale(data: ChartDatum[]) {
+  const dataMax = Math.max(
+    0,
+    ...data
+      .map((item) => Number(item.value))
+      .filter((value) => Number.isFinite(value)),
+  );
+
+  if (dataMax === 0) {
+    return { domainMax: 100, ticks: [0, 100] };
+  }
+
+  const roughStep = dataMax / 4;
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep));
+  const normalizedStep = roughStep / magnitude;
+  const niceFactor = normalizedStep <= 1
+    ? 1
+    : normalizedStep <= 2
+      ? 2
+      : normalizedStep <= 2.5
+        ? 2.5
+        : normalizedStep <= 5
+          ? 5
+          : 10;
+  const tickStep = Math.max(100, niceFactor * magnitude);
+  const domainMax = Math.ceil(dataMax / tickStep) * tickStep;
+  const ticks = Array.from(
+    { length: Math.floor(domainMax / tickStep) + 1 },
+    (_, index) => index * tickStep,
+  );
+
+  return { domainMax, ticks };
 }
 
 export function LineChartCard({
@@ -38,8 +73,25 @@ export function LineChartCard({
   index = 0,
   showArea = true,
   presentation = 'default',
+  yAxisScale = 'auto',
 }: LineChartCardProps) {
   const isStatistics = presentation === 'statistics';
+  const usesReactionTimeScale = yAxisScale === 'reaction-time-ms';
+  const reactionTimeScale = usesReactionTimeScale
+    ? getReactionTimeScale(data)
+    : null;
+  const yAxisProps = usesReactionTimeScale && reactionTimeScale
+    ? {
+        domain: [0, reactionTimeScale.domainMax] as [number, number],
+        ticks: reactionTimeScale.ticks,
+        tickFormatter: (value: number) => `${value} ms`,
+        allowDecimals: false,
+        width: 72,
+      }
+    : {
+        unit,
+        width: 50,
+      };
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -58,7 +110,10 @@ export function LineChartCard({
       <div className={isStatistics ? 'mt-7' : 'mt-4'} style={{ height }}>
         <ResponsiveContainer width="100%" height="100%">
           {showArea ? (
-            <AreaChart data={data} margin={{ top: 10, right: 8, left: -10, bottom: 0 }}>
+            <AreaChart
+              data={data}
+              margin={{ top: 10, right: 8, left: usesReactionTimeScale ? 0 : -10, bottom: 0 }}
+            >
               <defs>
                 <linearGradient id={`gradient-${title.replace(/\s/g, '')}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={color} stopOpacity={0.25} />
@@ -78,8 +133,7 @@ export function LineChartCard({
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
-                unit={unit}
-                width={50}
+                {...yAxisProps}
               />
               <Tooltip
                 contentStyle={{
@@ -104,10 +158,19 @@ export function LineChartCard({
               />
             </AreaChart>
           ) : (
-            <LineChart data={data} margin={{ top: 10, right: 8, left: -10, bottom: 0 }}>
+            <LineChart
+              data={data}
+              margin={{ top: 10, right: 8, left: usesReactionTimeScale ? 0 : -10, bottom: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
               <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-              <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} unit={unit} width={50} />
+              <YAxis
+                stroke="#94a3b8"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+                {...yAxisProps}
+              />
               <Tooltip
                 contentStyle={{
                   backgroundColor: 'white',
