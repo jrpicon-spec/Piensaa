@@ -51,7 +51,7 @@ interface PatientFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   patient?: Patient | null;
-  onSave: (patient: Patient) => void;
+  onSave: (patient: Patient) => Promise<void>;
 }
 
 const defaultValues: PatientFormValues = {
@@ -70,7 +70,8 @@ const defaultValues: PatientFormValues = {
 export function PatientFormModal({ open, onOpenChange, patient, onSave }: PatientFormModalProps) {
   const [values, setValues] = useState<PatientFormValues>(defaultValues);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const { success } = useToast();
+  const [saving, setSaving] = useState(false);
+  const { success, warning, error: showError } = useToast();
   const birthDateLimits = getBirthDateLimits();
 
   const isEdit = !!patient;
@@ -94,10 +95,11 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
         setValues(defaultValues);
       }
       setErrors({});
+      setSaving(false);
     }
   }, [open, patient]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
     const normalizedName = normalizeText(values.fullName);
@@ -132,6 +134,7 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      warning('Revisa los campos del formulario', Object.values(newErrors)[0]);
       return;
     }
 
@@ -153,9 +156,23 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
       createdAt: patient?.createdAt ?? new Date().toISOString(),
     };
 
-    onSave(result);
-    success(isEdit ? 'Paciente actualizado' : 'Paciente registrado', `${result.fullName} fue ${isEdit ? 'actualizado' : 'agregado'} correctamente`);
-    onOpenChange(false);
+    setSaving(true);
+    setErrors({});
+    try {
+      await onSave(result);
+      success(
+        isEdit ? 'Paciente actualizado' : 'Paciente registrado',
+        `${result.fullName} fue ${isEdit ? 'actualizado' : 'agregado'} correctamente`,
+      );
+      onOpenChange(false);
+    } catch (saveError) {
+      const message =
+        saveError instanceof Error ? saveError.message : 'No se pudo guardar el paciente.';
+      setErrors({ form: message });
+      showError('No se pudo guardar el paciente', message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -168,7 +185,7 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <DialogScrollArea>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5 sm:col-span-2">
@@ -304,14 +321,30 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
                 />
                 {errors.notes && <p className="text-xs text-rose-600">{errors.notes}</p>}
               </div>
+              {errors.form && (
+                <p className="text-sm text-rose-600 sm:col-span-2" role="alert">
+                  {errors.form}
+                </p>
+              )}
             </div>
           </DialogScrollArea>
 
           <DialogFooter className="mt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={() => onOpenChange(false)}
+            >
               Cancelar
             </Button>
-            <Button type="submit">{isEdit ? 'Guardar cambios' : 'Registrar paciente'}</Button>
+            <Button type="submit" disabled={saving}>
+              {saving
+                ? 'Guardando…'
+                : isEdit
+                  ? 'Guardar cambios'
+                  : 'Registrar paciente'}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

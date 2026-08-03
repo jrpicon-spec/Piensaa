@@ -14,6 +14,7 @@ import {
   normalizeText, sanitizePersonName, sanitizePhone, validateEmail,
   validatePersonName, validatePhone,
 } from '@/utils';
+import { useToast } from '@/contexts/ToastContext';
 
 export interface UserFormValues {
   name: string;
@@ -39,6 +40,7 @@ export function UserFormModal({ open, onOpenChange, user, onSave }: Props) {
   const [values, setValues] = useState<UserFormValues>(defaults);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const { warning, error: showError } = useToast();
   const isEdit = Boolean(user);
 
   useEffect(() => {
@@ -48,6 +50,7 @@ export function UserFormModal({ open, onOpenChange, user, onSave }: Props) {
       role: user.role, status: user.status, password: '',
     } : defaults);
     setErrors({});
+    setSaving(false);
   }, [open, user]);
 
   async function submit(event: React.FormEvent) {
@@ -71,6 +74,7 @@ export function UserFormModal({ open, onOpenChange, user, onSave }: Props) {
     }
     if (Object.keys(next).length) {
       setErrors(next);
+      warning('Revisa los campos del formulario', Object.values(next)[0]);
       return;
     }
     setSaving(true);
@@ -83,7 +87,9 @@ export function UserFormModal({ open, onOpenChange, user, onSave }: Props) {
       });
       onOpenChange(false);
     } catch (error) {
-      setErrors({ form: error instanceof Error ? error.message : 'No se pudo guardar el usuario.' });
+      const message = error instanceof Error ? error.message : 'No se pudo guardar el usuario.';
+      setErrors({ form: message });
+      showError('No se pudo guardar el usuario', message);
     } finally {
       setSaving(false);
     }
@@ -99,7 +105,7 @@ export function UserFormModal({ open, onOpenChange, user, onSave }: Props) {
               'Define una contraseña temporal y comunícala al usuario por un canal seguro.'}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={submit}>
+        <form onSubmit={submit} noValidate>
           <DialogScrollArea>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Nombre completo *" error={errors.name} wide>
