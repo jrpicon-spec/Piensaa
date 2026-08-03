@@ -265,7 +265,7 @@ export function PatientDetailsPage() {
 
   const lastMeasurements = patientRecords.slice(0, 10).map((r) => ({
     label: r.time.slice(0, 5),
-    value: r.reactionMs,
+    value: Number(r.reactionMs),
     variant: r.status as 'normal' | 'atencion' | 'riesgo',
   }));
 
@@ -710,6 +710,7 @@ export function PatientDetailsPage() {
               description="Coloreado por estado"
               data={lastMeasurements}
               coloredByVariant
+              yAxisScale="reaction-time-ms"
             />
           </div>
         </TabsContent>

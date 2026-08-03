@@ -25,6 +25,7 @@ interface BarChartCardProps {
   index?: number;
   coloredByVariant?: boolean;
   presentation?: 'default' | 'statistics';
+  yAxisScale?: 'auto' | 'reaction-time-ms';
 }
 
 const variantColors: Record<string, string> = {
@@ -48,8 +49,10 @@ export function BarChartCard({
   index = 0,
   coloredByVariant = false,
   presentation = 'default',
+  yAxisScale = 'auto',
 }: BarChartCardProps) {
   const isStatistics = presentation === 'statistics';
+  const usesReactionTimeScale = yAxisScale === 'reaction-time-ms';
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -67,10 +70,27 @@ export function BarChartCard({
       </div>
       <div className={isStatistics ? 'mt-7' : 'mt-4'} style={{ height }}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 10, right: 8, left: -10, bottom: 0 }}>
+          <BarChart
+            data={data}
+            margin={{ top: 10, right: 8, left: usesReactionTimeScale ? 0 : -10, bottom: 0 }}
+          >
             <CartesianGrid strokeDasharray="4 6" stroke="#e8edf3" vertical={false} />
             <XAxis dataKey="label" stroke="#8491a3" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis stroke="#8491a3" fontSize={12} tickLine={false} axisLine={false} unit={unit} width={50} />
+            <YAxis
+              stroke="#8491a3"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
+              domain={usesReactionTimeScale
+                ? [0, (dataMax: number) => Math.max(100, Math.ceil(dataMax / 100) * 100)]
+                : undefined}
+              tickFormatter={usesReactionTimeScale
+                ? (value: number) => `${value} ms`
+                : undefined}
+              allowDecimals={usesReactionTimeScale ? false : undefined}
+              unit={usesReactionTimeScale ? undefined : unit}
+              width={usesReactionTimeScale ? 72 : 50}
+            />
             <Tooltip
               cursor={{ fill: 'rgba(30, 136, 229, 0.06)' }}
               contentStyle={{
