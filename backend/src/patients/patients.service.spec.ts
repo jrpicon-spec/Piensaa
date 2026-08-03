@@ -60,25 +60,23 @@ describe('PatientsService', () => {
     };
     measurementsQuery.select.mockReturnValue(measurementsQuery);
     measurementsQuery.in.mockReturnValue(measurementsQuery);
-    measurementsQuery.order
-      .mockReturnValueOnce(measurementsQuery)
-      .mockResolvedValueOnce({
-        data: [
-          {
-            paciente_id: 'patient-with-measurements',
-            fecha: '2026-07-20T10:00:00.000Z',
-          },
-          {
-            paciente_id: 'patient-with-measurements',
-            fecha: '2026-08-01T04:36:05.000Z',
-          },
-          {
-            paciente_id: 'patient-with-measurements',
-            fecha: '2026-07-31T15:00:00.000Z',
-          },
-        ],
-        error: null,
-      });
+    measurementsQuery.order.mockResolvedValue({
+      data: [
+        {
+          paciente_id: 'patient-with-measurements',
+          fecha: '2026-07-20T10:00:00.000Z',
+        },
+        {
+          paciente_id: 'patient-with-measurements',
+          fecha: '2026-08-01T04:36:05.000Z',
+        },
+        {
+          paciente_id: 'patient-with-measurements',
+          fecha: '2026-07-31T15:00:00.000Z',
+        },
+      ],
+      error: null,
+    });
 
     const admin = {
       from: jest.fn((table: string) =>
@@ -101,14 +99,13 @@ describe('PatientsService', () => {
     );
 
     expect(admin.from).toHaveBeenCalledTimes(2);
+    expect(measurementsQuery.select).toHaveBeenCalledWith('paciente_id, fecha');
     expect(measurementsQuery.in).toHaveBeenCalledWith(
       'paciente_id',
       patientRows.map((patient) => patient.id),
     );
-    expect(measurementsQuery.order).toHaveBeenNthCalledWith(1, 'fecha', {
-      ascending: false,
-    });
-    expect(measurementsQuery.order).toHaveBeenNthCalledWith(2, 'created_at', {
+    expect(measurementsQuery.order).toHaveBeenCalledTimes(1);
+    expect(measurementsQuery.order).toHaveBeenCalledWith('fecha', {
       ascending: false,
     });
     expect(result.items[0]?.lastEvaluationAt).toBe('2026-08-01T04:36:05.000Z');

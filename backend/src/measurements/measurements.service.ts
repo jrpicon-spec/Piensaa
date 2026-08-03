@@ -445,7 +445,6 @@ export class MeasurementsService {
       paciente_id: String(row['paciente_id']),
       tiempo_reaccion: tiempo,
       fecha: String(row['fecha'] ?? ''),
-      created_at: row['created_at'] ? String(row['created_at']) : undefined,
       estado:
         typeof row['estado'] === 'string'
           ? row['estado']

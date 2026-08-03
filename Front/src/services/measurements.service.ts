@@ -26,7 +26,6 @@ interface BackendMeasurement {
   paciente_id: string;
   tiempo_reaccion: number;
   fecha: string;
-  created_at?: string;
   estado?: 'normal' | 'atencion' | 'riesgo';
   paciente?: BackendMeasurementPatient | null;
   caregiverName?: string | null;

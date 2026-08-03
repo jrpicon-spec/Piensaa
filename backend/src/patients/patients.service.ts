@@ -305,10 +305,9 @@ export class PatientsService {
 
     const { data, error } = await admin
       .from('mediciones')
-      .select('paciente_id, fecha, created_at')
+      .select('paciente_id, fecha')
       .in('paciente_id', patientIds)
-      .order('fecha', { ascending: false })
-      .order('created_at', { ascending: false });
+      .order('fecha', { ascending: false });
 
     if (error) {
       throw new BadRequestException(
@@ -321,7 +320,7 @@ export class PatientsService {
     );
     for (const row of rows) {
       const patientId = String(row['paciente_id'] ?? '');
-      const evaluationAt = row['fecha'] ?? row['created_at'];
+      const evaluationAt = row['fecha'];
       if (
         patientId &&
         typeof evaluationAt === 'string' &&
@@ -334,7 +333,7 @@ export class PatientsService {
   }
 
   private measurementTimestamp(row: Record<string, unknown>): number {
-    const value = row['fecha'] ?? row['created_at'];
+    const value = row['fecha'];
     const timestamp = typeof value === 'string' ? Date.parse(value) : NaN;
     return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
   }

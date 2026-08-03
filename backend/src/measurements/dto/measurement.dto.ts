@@ -43,7 +43,6 @@ export class MeasurementResponse {
   paciente_id!: string;
   tiempo_reaccion!: number;
   fecha!: string;
-  created_at?: string;
   estado?: string;
   nivel?: number;
   exitoso?: boolean;

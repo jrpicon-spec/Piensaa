@@ -46,7 +46,6 @@ export interface SupabaseMeasurement {
   paciente_id: string;
   tiempo_reaccion: number;
   fecha: string;
-  created_at?: string;
 }
 
 export interface SupabaseDevice {
