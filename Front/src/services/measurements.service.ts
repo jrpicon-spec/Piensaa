@@ -12,6 +12,11 @@ export interface Measurement {
   patientName?: string;
   caregiverName: string | null;
   deviceId?: string;
+  level?: number;
+  successful?: boolean;
+  correctButton?: number | null;
+  pressedButton?: number | null;
+  timeout?: boolean;
 }
 
 interface BackendMeasurementPatient {
@@ -29,6 +34,11 @@ interface BackendMeasurement {
   estado?: 'normal' | 'atencion' | 'riesgo';
   paciente?: BackendMeasurementPatient | null;
   caregiverName?: string | null;
+  nivel?: number;
+  exitoso?: boolean;
+  boton_correcto?: number | null;
+  boton_presionado?: number | null;
+  timeout?: boolean;
 }
 
 interface BackendMeasurementList {
@@ -69,6 +79,11 @@ function mapBackendMeasurement(m: BackendMeasurement): Measurement {
       ? `${m.paciente.nombre} ${m.paciente.apellido ?? ''}`.trim()
       : undefined,
     caregiverName: m.caregiverName ?? m.paciente?.cuidador?.nombre ?? null,
+    level: m.nivel,
+    successful: m.exitoso,
+    correctButton: m.boton_correcto,
+    pressedButton: m.boton_presionado,
+    timeout: m.timeout,
   };
 }
 
