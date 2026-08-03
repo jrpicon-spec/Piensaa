@@ -84,7 +84,6 @@ export interface UpdatePatientDto {
   direccion?: string;
   responsable?: string;
   observaciones?: string;
-  estado?: 'normal' | 'atencion' | 'riesgo';
   cuidador_id?: string;
 }
 
@@ -136,26 +135,50 @@ class PatientsService {
 
   async create(dto: CreatePatientDto): Promise<Patient> {
     const token = getStoredToken();
+    const payload: CreatePatientDto = {
+      nombre: dto.nombre,
+      apellido: dto.apellido,
+      fecha_nacimiento: dto.fecha_nacimiento,
+      sexo: dto.sexo,
+      telefono: dto.telefono,
+      direccion: dto.direccion,
+      responsable: dto.responsable,
+      ...(dto.observaciones !== undefined ? { observaciones: dto.observaciones } : {}),
+      ...(dto.cuidador_id !== undefined ? { cuidador_id: dto.cuidador_id } : {}),
+    };
     const data = await requestJson<BackendPatient>('/patients', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify(dto),
+      body: JSON.stringify(payload),
     });
     return mapBackendPatient(data);
   }
 
   async update(id: string, dto: UpdatePatientDto): Promise<Patient> {
     const token = getStoredToken();
+    const payload: UpdatePatientDto = {
+      ...(dto.nombre !== undefined ? { nombre: dto.nombre } : {}),
+      ...(dto.apellido !== undefined ? { apellido: dto.apellido } : {}),
+      ...(dto.fecha_nacimiento !== undefined
+        ? { fecha_nacimiento: dto.fecha_nacimiento }
+        : {}),
+      ...(dto.sexo !== undefined ? { sexo: dto.sexo } : {}),
+      ...(dto.telefono !== undefined ? { telefono: dto.telefono } : {}),
+      ...(dto.direccion !== undefined ? { direccion: dto.direccion } : {}),
+      ...(dto.responsable !== undefined ? { responsable: dto.responsable } : {}),
+      ...(dto.observaciones !== undefined ? { observaciones: dto.observaciones } : {}),
+      ...(dto.cuidador_id !== undefined ? { cuidador_id: dto.cuidador_id } : {}),
+    };
     const data = await requestJson<BackendPatient>(`/patients/${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify(dto),
+      body: JSON.stringify(payload),
     });
     return mapBackendPatient(data);
   }

@@ -22,8 +22,6 @@ import {
 import type { Gender, Patient, PatientStatus } from '@/types';
 import {
   calculateAge,
-  generateAvatarUrl,
-  generateId,
   getBirthDateLimits,
   normalizeText,
   sanitizePersonName,
@@ -47,11 +45,22 @@ export interface PatientFormValues {
   caregiverId?: string;
 }
 
+export interface PatientFormSubmission {
+  fullName: string;
+  birthDate: string;
+  gender: Gender;
+  phone: string;
+  address: string;
+  guardianName: string;
+  notes?: string;
+  caregiverId?: string;
+}
+
 interface PatientFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   patient?: Patient | null;
-  onSave: (patient: Patient) => Promise<void>;
+  onSave: (patient: PatientFormSubmission) => Promise<void>;
 }
 
 const defaultValues: PatientFormValues = {
@@ -142,31 +151,24 @@ export function PatientFormModal({ open, onOpenChange, patient, onSave }: Patien
       return;
     }
 
-    const result: Patient = {
-      id: patient?.id ?? `p-${generateId()}`,
+    const submission: PatientFormSubmission = {
       fullName: normalizedName,
-      age: calculateAge(values.birthDate),
       gender: values.gender,
       birthDate: values.birthDate,
       phone: values.phone.trim(),
       address,
       guardianName: normalizeText(values.guardianName),
-      guardianPhone: values.guardianPhone.trim() || undefined,
       notes: values.notes.trim() || undefined,
-      photo: patient?.photo ?? generateAvatarUrl(values.fullName),
-      status: values.status,
       caregiverId: values.caregiverId || undefined,
-      lastEvaluation: patient?.lastEvaluation,
-      createdAt: patient?.createdAt ?? new Date().toISOString(),
     };
 
     setSaving(true);
     setErrors({});
     try {
-      await onSave(result);
+      await onSave(submission);
       success(
         isEdit ? 'Paciente actualizado' : 'Paciente registrado',
-        `${result.fullName} fue ${isEdit ? 'actualizado' : 'agregado'} correctamente`,
+        `${submission.fullName} fue ${isEdit ? 'actualizado' : 'agregado'} correctamente`,
       );
       onOpenChange(false);
     } catch (saveError) {

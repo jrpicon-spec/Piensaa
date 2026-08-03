@@ -13,7 +13,10 @@ import {
 } from '@/components/ui/Select';
 import { PageHeader, EmptyState } from '@/components/ui/PageHeader';
 import { PatientCard } from '@/components/patients/PatientCard';
-import { PatientFormModal } from '@/components/patients/PatientFormModal';
+import {
+  PatientFormModal,
+  type PatientFormSubmission,
+} from '@/components/patients/PatientFormModal';
 import {
   buildCreatePatientPayload,
   buildUpdatePatientPayload,
@@ -82,11 +85,13 @@ export function MyPatientsPage() {
     if (!open) setEditing(null);
   };
 
-  const handleSave = async (patient: Patient) => {
+  const handleSave = async (patient: PatientFormSubmission) => {
     if (editing) {
       const payload: UpdatePatientPayload = buildUpdatePatientPayload(patient);
-      const updated = await patientsService.update(patient.id, payload);
-      setPatients((current) => current.map((p) => (p.id === patient.id ? updated : p)));
+      const updated = await patientsService.update(editing.id, payload);
+      setPatients((current) =>
+        current.map((p) => (p.id === editing.id ? updated : p)),
+      );
     } else {
       const payload: CreatePatientPayload = buildCreatePatientPayload(patient, user.id);
       const created = await patientsService.create(payload);

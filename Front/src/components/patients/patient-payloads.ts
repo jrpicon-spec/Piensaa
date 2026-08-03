@@ -1,11 +1,19 @@
 import type { CreatePatientDto, UpdatePatientDto } from '@/services/patients.service';
-import type { Patient } from '@/types';
+import type { PatientFormSubmission } from './PatientFormModal';
 
 export type CreatePatientPayload = CreatePatientDto;
 
 export type UpdatePatientPayload = Pick<
   UpdatePatientDto,
-  'nombre' | 'apellido' | 'telefono' | 'direccion' | 'responsable' | 'observaciones'
+  | 'nombre'
+  | 'apellido'
+  | 'fecha_nacimiento'
+  | 'sexo'
+  | 'telefono'
+  | 'direccion'
+  | 'responsable'
+  | 'observaciones'
+  | 'cuidador_id'
 >;
 
 function splitPatientName(fullName: string): { nombre: string; apellido: string } {
@@ -14,7 +22,7 @@ function splitPatientName(fullName: string): { nombre: string; apellido: string 
 }
 
 export function buildCreatePatientPayload(
-  patient: Patient,
+  patient: PatientFormSubmission,
   caregiverId?: string,
 ): CreatePatientPayload {
   const { nombre, apellido } = splitPatientName(patient.fullName);
@@ -32,15 +40,18 @@ export function buildCreatePatientPayload(
   };
 }
 
-export function buildUpdatePatientPayload(patient: Patient): UpdatePatientPayload {
+export function buildUpdatePatientPayload(patient: PatientFormSubmission): UpdatePatientPayload {
   const { nombre, apellido } = splitPatientName(patient.fullName);
 
   return {
     nombre,
     apellido,
+    fecha_nacimiento: patient.birthDate,
+    sexo: patient.gender,
     telefono: patient.phone,
     direccion: patient.address,
     responsable: patient.guardianName,
-    ...(patient.notes ? { observaciones: patient.notes } : {}),
+    observaciones: patient.notes ?? '',
+    ...(patient.caregiverId ? { cuidador_id: patient.caregiverId } : {}),
   };
 }
